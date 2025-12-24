@@ -1088,38 +1088,9 @@ body::before {
     }
 
     .panel-title {
-        font-size: 12px;
-        margin-bottom: 10px;
+        font-size: 11px;
+        margin-bottom: 8px;
         padding-bottom: 6px;
-    }
-
-    .header-left {
-        gap: 8px;
-        flex-wrap: wrap;
-    }
-
-    .header-right {
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 4px;
-    }
-
-    .logo-text {
-        font-size: 14px;
-    }
-
-    .header-subtitle {
-        font-size: 10px;
-        display: none; /* Hide on very small screens */
-    }
-
-    .status-indicator {
-        font-size: 9px;
-        padding: 4px 8px;
-    }
-
-    .datetime {
-        font-size: 10px;
     }
 
     .node-grid {
