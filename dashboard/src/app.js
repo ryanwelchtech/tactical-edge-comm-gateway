@@ -59,7 +59,6 @@ function initializeDashboard() {
     state.messagesClearedAt = null;
     state.clearedMessageIds = new Set();
     sessionStorage.removeItem('tacedge_messages_cleared_at');
-    console.log(`[initializeDashboard] Starting fresh at ${new Date(state.dashboardInitTime).toISOString()} - only showing messages after this time`);
     
     renderMessages();
 
@@ -170,44 +169,6 @@ async function fetchAuditEvents() {
         if (res.ok) {
             const data = await res.json();
             const events = data.events || [];
-            
-            console.log(`[fetchAuditEvents] Fetched ${events.length} audit events`);
-            
-            // Log the newest and oldest event timestamps to understand ordering
-            if (events.length > 0) {
-                const sortedByTime = [...events].sort((a, b) => 
-                    new Date(a.timestamp) - new Date(b.timestamp)
-                );
-                const oldest = sortedByTime[0];
-                const newest = sortedByTime[sortedByTime.length - 1];
-                console.log(`[fetchAuditEvents] Event timestamp range:`, {
-                    oldest: oldest.timestamp,
-                    newest: newest.timestamp,
-                    oldestTime: new Date(oldest.timestamp).toISOString(),
-                    newestTime: new Date(newest.timestamp).toISOString(),
-                    oldestEventType: oldest.event_type,
-                    newestEventType: newest.event_type
-                });
-                
-                // Check if there are any MESSAGE_SENT events in the fetched batch
-                const messageSentEvents = events.filter(e => e.event_type === 'MESSAGE_SENT');
-                if (messageSentEvents.length > 0) {
-                    const newestMessage = messageSentEvents.sort((a, b) => 
-                        new Date(b.timestamp) - new Date(a.timestamp)
-                    )[0];
-                    console.log(`[fetchAuditEvents] Newest MESSAGE_SENT event:`, {
-                        timestamp: newestMessage.timestamp,
-                        timestampISO: new Date(newestMessage.timestamp).toISOString(),
-                        messageId: newestMessage.action?.resource,
-                        initTime: state.dashboardInitTime ? new Date(state.dashboardInitTime).toISOString() : 'null',
-                        willPassFilter: state.dashboardInitTime ? 
-                            (new Date(newestMessage.timestamp).getTime() > (state.dashboardInitTime - 10000)) : 
-                            'no init time'
-                    });
-                } else {
-                    console.log(`[fetchAuditEvents] No MESSAGE_SENT events in fetched batch`);
-                }
-            }
 
             // Show most recent 10 audit events (not just 5)
             state.auditEvents = events.slice(0, 10).map(event => ({
@@ -249,15 +210,11 @@ async function fetchMessageContent(messageId) {
         if (res.ok) {
             const data = await res.json();
             if (data.content) {
-                console.log(`Successfully fetched content for ${messageId}`);
                 return data.content;
             }
-        } else {
-            const errorText = await res.text();
-            console.log(`Failed to fetch content for ${messageId}:`, res.status, errorText);
         }
     } catch (error) {
-        console.log(`Could not fetch content for ${messageId}:`, error);
+        // Silently fail - content will be shown as unavailable
     }
     return null;
 }
@@ -281,59 +238,14 @@ async function extractMessagesFromAudit() {
         const initTime = state.dashboardInitTime;
         const bufferTime = initTime - (10 * 1000); // 10 seconds before init time to account for clock skew
         
-        // Debug: Log all MESSAGE_SENT events and their timestamps relative to init time
-        const messageSentEvents = allEvents.filter(e => e.event_type === 'MESSAGE_SENT');
-        if (messageSentEvents.length > 0) {
-            console.log(`[extractMessagesFromAudit] Checking ${messageSentEvents.length} MESSAGE_SENT events against init time ${new Date(initTime).toISOString()}`);
-            messageSentEvents.slice(0, 5).forEach(e => {
-                const eventTime = new Date(e.timestamp).getTime();
-                const timeDiff = eventTime - initTime;
-                console.log(`[extractMessagesFromAudit] Message timestamp check:`, {
-                    timestamp: e.timestamp,
-                    eventTime: new Date(eventTime).toISOString(),
-                    initTime: new Date(initTime).toISOString(),
-                    timeDiff: Math.round(timeDiff / 1000) + 's',
-                    willPass: timeDiff > -10000,
-                    messageId: e.action?.resource
-                });
-            });
-        }
-        
         filteredEvents = allEvents.filter(e => {
             const eventTime = new Date(e.timestamp).getTime();
-            const isAfterInit = eventTime > bufferTime; // Include events 10 seconds before init (buffer for timing)
-            if (e.event_type === 'MESSAGE_SENT' && !isAfterInit) {
-                const timeDiff = initTime - eventTime;
-                console.log(`[extractMessagesFromAudit] Filtered out old message (before init time):`, {
-                    eventTime: new Date(eventTime).toISOString(),
-                    initTime: new Date(initTime).toISOString(),
-                    bufferTime: new Date(bufferTime).toISOString(),
-                    messageId: e.action?.resource,
-                    timeDiff: Math.round(timeDiff / 1000) + 's before init'
-                });
-            } else if (e.event_type === 'MESSAGE_SENT' && isAfterInit) {
-                // Log messages that pass the filter
-                const timeDiff = eventTime - initTime;
-                console.log(`[extractMessagesFromAudit] Keeping message (after init time):`, {
-                    eventTime: new Date(eventTime).toISOString(),
-                    initTime: new Date(initTime).toISOString(),
-                    timeDiff: Math.round(timeDiff / 1000) + 's after init',
-                    messageId: e.action?.resource
-                });
-            }
-            return isAfterInit;
+            return eventTime > bufferTime; // Include events 10 seconds before init (buffer for timing)
         });
-        
-        const removedCount = allEvents.length - filteredEvents.length;
-        if (removedCount > 0) {
-            console.log(`[extractMessagesFromAudit] After init time filter (${new Date(initTime).toISOString()}): ${filteredEvents.length} events (removed ${removedCount} old events from previous sessions)`);
-        }
     }
     
     // Then, filter out messages that were explicitly cleared by ID
     if (state.clearedMessageIds && state.clearedMessageIds.size > 0) {
-        console.log(`[extractMessagesFromAudit] Filtering out ${state.clearedMessageIds.size} cleared message IDs`);
-        const beforeClearFilter = filteredEvents.length;
         filteredEvents = filteredEvents.filter(e => {
             if (e.event_type === 'MESSAGE_SENT') {
                 let messageId = e.action?.resource || '';
@@ -350,32 +262,10 @@ async function extractMessagesFromAudit() {
             }
             return true; // Keep all other events
         });
-        console.log(`[extractMessagesFromAudit] After ID filter: ${filteredEvents.length} events (removed ${beforeClearFilter - filteredEvents.length})`);
     }
     
     // Filter for MESSAGE_SENT events
     const messageSentFiltered = filteredEvents.filter(e => e.event_type === 'MESSAGE_SENT');
-    console.log(`[extractMessagesFromAudit] MESSAGE_SENT events after filtering: ${messageSentFiltered.length}`);
-    
-    if (messageSentFiltered.length > 0) {
-        console.log(`[extractMessagesFromAudit] Sample MESSAGE_SENT event:`, {
-            event_type: messageSentFiltered[0].event_type,
-            timestamp: messageSentFiltered[0].timestamp,
-            resource: messageSentFiltered[0].action?.resource,
-            sender: messageSentFiltered[0].actor?.node_id,
-            recipient: messageSentFiltered[0].context?.recipient
-        });
-    } else {
-        // Debug: show what MESSAGE_SENT events we have before filtering
-        const allMessageSent = allEvents.filter(e => e.event_type === 'MESSAGE_SENT');
-        if (allMessageSent.length > 0) {
-            console.log(`[extractMessagesFromAudit] Found ${allMessageSent.length} MESSAGE_SENT events before filtering, but 0 after. Sample:`, {
-                timestamp: allMessageSent[0].timestamp,
-                initTime: state.dashboardInitTime ? new Date(state.dashboardInitTime).toISOString() : 'null',
-                clearedIds: state.clearedMessageIds.size
-            });
-        }
-    }
     
     const messageEvents = await Promise.all(
         messageSentFiltered
@@ -432,10 +322,8 @@ async function extractMessagesFromAudit() {
 
         // Keep only last 20 messages
         state.messages = Array.from(messageMap.values()).slice(0, 20);
-        console.log(`[extractMessagesFromAudit] Extracted ${state.messages.length} messages`);
         renderMessages();
     } else {
-        console.log(`[extractMessagesFromAudit] No messages found in audit events`);
         // If no messages from audit, keep the list empty
         // Don't load demo data - user wants to see real messages only
         state.messages = [];
@@ -751,7 +639,6 @@ async function getToken() {
                 // Store in sessionStorage for persistence across page refreshes
                 sessionStorage.setItem('tacedge_token', sessionToken);
                 sessionStorage.setItem('tacedge_node_id', sessionNodeId);
-                console.log('Generated new session token:', sessionNodeId);
             } else {
                 console.warn('Failed to generate token, using fallback');
                 sessionToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYXNoYm9hcmQiLCJyb2xlIjoib3BlcmF0b3IifQ.demo';
@@ -814,11 +701,6 @@ async function sendMessage(precedence, classification, sender, recipient, conten
             if (response.ok) {
                 const data = await response.json();
                 messages.push({ success: true, id: data.message_id });
-                console.log(`[sendMessage] Message sent successfully:`, {
-                    messageId: data.message_id,
-                    timestamp: new Date().toISOString(),
-                    initTime: state.dashboardInitTime ? new Date(state.dashboardInitTime).toISOString() : 'null'
-                });
             } else {
                 const error = await response.json();
                 messages.push({ success: false, error: error.detail?.error?.message || 'Failed' });
@@ -846,25 +728,11 @@ async function sendMessage(precedence, classification, sender, recipient, conten
         }
         // Refresh data immediately, then again after delays to catch audit events
         // Audit service may need time to persist events
-        console.log(`[sendMessage] Message sent successfully, refreshing data...`);
-        console.log(`[sendMessage] Current init time: ${state.dashboardInitTime ? new Date(state.dashboardInitTime).toISOString() : 'null'}`);
         fetchAllData();
-        setTimeout(() => {
-            console.log(`[sendMessage] First refresh (500ms delay)`);
-            fetchAllData();
-        }, 500);
-        setTimeout(() => {
-            console.log(`[sendMessage] Second refresh (2s delay)`);
-            fetchAllData();
-        }, 2000);
-        setTimeout(() => {
-            console.log(`[sendMessage] Third refresh (5s delay)`);
-            fetchAllData();
-        }, 5000);
-        setTimeout(() => {
-            console.log(`[sendMessage] Fourth refresh (10s delay)`);
-            fetchAllData();
-        }, 10000);
+        setTimeout(() => fetchAllData(), 500);
+        setTimeout(() => fetchAllData(), 2000);
+        setTimeout(() => fetchAllData(), 5000);
+        setTimeout(() => fetchAllData(), 10000);
     } else {
         statusEl.textContent = `Sent ${successCount}/${totalMessages} message(s). ${failCount} failed.`;
         statusEl.className = 'send-status error';
@@ -924,7 +792,6 @@ function initializeMessageSender() {
             // Just track which specific messages were cleared
             clearedMessageIds.forEach(id => state.clearedMessageIds.add(id));
             
-            console.log(`[clearMessages] Cleared ${clearedMessageIds.size} message(s) by ID. Total cleared: ${state.clearedMessageIds.size}`);
             
             // Don't persist clear timestamp - just clear the current view
             sessionStorage.removeItem('tacedge_messages_cleared_at');

@@ -220,13 +220,13 @@ The system implements **military-standard priority-based message queuing** where
 ### Messages Not Appearing
 - Check that services are running: `docker-compose ps`
 - Verify service health indicators show "HEALTHY"
-- Check browser console for API errors
 - Ensure you're sending messages with valid node IDs
+- Messages appear within 2 seconds of sending
 
 ### Clear Button Not Working
 - Refresh the page if messages reappear
-- Check browser console for JavaScript errors
 - Verify dashboard JavaScript is loading correctly
+- Messages should stay cleared until new ones are sent
 
 ### Dashboard Not Loading
 - Verify Docker containers are running: `docker-compose ps`
