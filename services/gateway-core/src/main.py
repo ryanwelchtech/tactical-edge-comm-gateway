@@ -8,7 +8,7 @@ and orchestration of the tactical communications platform.
 import os
 import uuid
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -20,8 +20,9 @@ from pydantic import BaseModel, Field
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
 
-from .auth import JWTClaims, require_permission
+from .auth import JWTClaims, require_permission, JWT_SECRET, JWT_ALGORITHM, ROLE_PERMISSIONS
 from .message_handler import MessageHandler, MessagePrecedence
+from jose import jwt
 
 # Configure structured logging
 structlog.configure(
@@ -373,6 +374,60 @@ async def acknowledge_message(
         "acknowledged": True,
         "acknowledged_at": datetime.now(timezone.utc).isoformat(),
         "acknowledged_by": claims.node_id
+    }
+
+
+@app.post("/api/v1/auth/token", tags=["Authentication"])
+async def generate_token(
+    node_id: Optional[str] = None,
+    role: Optional[str] = "operator",
+    classification: Optional[str] = "UNCLASSIFIED"
+):
+    """
+    Generate a JWT token for dashboard access.
+    Each request generates a unique token with a unique session ID.
+    """
+    import secrets
+    
+    # Generate unique session ID
+    session_id = f"session-{secrets.token_hex(8)}"
+    node = node_id or f"DASHBOARD-{session_id[:8].upper()}"
+    
+    now = datetime.now(timezone.utc)
+    expiry = now + timedelta(hours=24)
+    
+    permissions = ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["operator"])
+    
+    payload = {
+        "iss": "tacedge-gateway",
+        "sub": node,
+        "aud": "tacedge-services",
+        "exp": int(expiry.timestamp()),
+        "iat": int(now.timestamp()),
+        "nbf": int(now.timestamp()),
+        "jti": f"token-{now.strftime('%Y%m%d%H%M%S')}-{secrets.token_hex(4)}",
+        "role": role,
+        "permissions": permissions,
+        "node_id": node,
+        "classification_level": classification,
+        "session_id": session_id
+    }
+    
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    
+    logger.info(
+        "Token generated",
+        node_id=node,
+        role=role,
+        session_id=session_id
+    )
+    
+    return {
+        "token": token,
+        "node_id": node,
+        "role": role,
+        "session_id": session_id,
+        "expires_at": expiry.isoformat()
     }
 
 

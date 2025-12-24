@@ -39,6 +39,7 @@ const state = {
 // Initialize Dashboard
 document.addEventListener('DOMContentLoaded', () => {
     initializeDashboard();
+    initializeMessageSender();
     startDataRefresh();
     updateDateTime();
     setInterval(updateDateTime, 1000);
@@ -71,8 +72,9 @@ async function fetchAllData() {
 
 async function fetchNodes() {
     try {
+        const token = await getToken();
         const res = await fetch(`${CONFIG.gatewayUrl}/api/v1/nodes`, {
-            headers: { 'Authorization': `Bearer ${getToken()}` }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
             const data = await res.json();
@@ -169,12 +171,20 @@ async function fetchAuditEvents() {
 async function fetchMessageContent(messageId) {
     // Try to fetch message content from gateway API
     try {
-        const res = await fetch(`${CONFIG.gatewayUrl}/api/v1/messages/${messageId}/content`, {
-            headers: { 'Authorization': `Bearer ${getToken()}` }
+        const token = await getToken();
+        const url = `${CONFIG.gatewayUrl}/api/v1/messages/${encodeURIComponent(messageId)}/content`;
+        const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
             const data = await res.json();
-            return data.content;
+            if (data.content) {
+                console.log(`Successfully fetched content for ${messageId}`);
+                return data.content;
+            }
+        } else {
+            const errorText = await res.text();
+            console.log(`Failed to fetch content for ${messageId}:`, res.status, errorText);
         }
     } catch (error) {
         console.log(`Could not fetch content for ${messageId}:`, error);
@@ -189,18 +199,25 @@ async function extractMessagesFromAudit() {
         allEvents
             .filter(e => e.event_type === 'MESSAGE_SENT')
             .map(async e => {
-                const messageId = e.action?.resource?.replace('message:', '') || `msg-${e.event_id}`;
+                // Extract message ID - handle both "message:msg-xxx" and "msg-xxx" formats
+                let messageId = e.action?.resource || '';
+                if (messageId.startsWith('message:')) {
+                    messageId = messageId.replace('message:', '');
+                }
+                if (!messageId || messageId === '') {
+                    messageId = `msg-${e.event_id}`;
+                }
                 
                 // Try to get content from audit context first
                 let content = e.context?.content || e.context?.message_content;
                 
                 // If not in audit log, try fetching from gateway API
-                if (!content) {
+                if (!content || content === 'Message content not available') {
                     content = await fetchMessageContent(messageId);
                 }
                 
                 // Fallback message
-                if (!content) {
+                if (!content || content === 'Message content not available') {
                     content = 'Message content not available';
                 }
                 
@@ -533,9 +550,158 @@ function startDataRefresh() {
     }, CONFIG.refreshInterval);
 }
 
-function getToken() {
-    // In production, this would retrieve the JWT from storage
-    return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYXNoYm9hcmQiLCJyb2xlIjoib3BlcmF0b3IifQ.demo';
+let sessionToken = null;
+let sessionNodeId = null;
+
+async function getToken() {
+    // Generate unique token per session if not already generated
+    if (!sessionToken) {
+        try {
+            const response = await fetch(`${CONFIG.gatewayUrl}/api/v1/auth/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                sessionToken = data.token;
+                sessionNodeId = data.node_id;
+                // Store in sessionStorage for persistence across page refreshes
+                sessionStorage.setItem('tacedge_token', sessionToken);
+                sessionStorage.setItem('tacedge_node_id', sessionNodeId);
+                console.log('Generated new session token:', sessionNodeId);
+            } else {
+                console.warn('Failed to generate token, using fallback');
+                sessionToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYXNoYm9hcmQiLCJyb2xlIjoib3BlcmF0b3IifQ.demo';
+            }
+        } catch (error) {
+            console.warn('Token generation failed, using fallback:', error);
+            sessionToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYXNoYm9hcmQiLCJyb2xlIjoib3BlcmF0b3IifQ.demo';
+        }
+    }
+    
+    // Check sessionStorage for existing token
+    if (!sessionToken) {
+        const stored = sessionStorage.getItem('tacedge_token');
+        if (stored) {
+            sessionToken = stored;
+            sessionNodeId = sessionStorage.getItem('tacedge_node_id');
+        }
+    }
+    
+    return sessionToken;
+}
+
+// Message Sender Functions
+async function sendMessage(precedence, classification, sender, recipient, content, isBatch = false, batchCount = 1) {
+    const token = await getToken();
+    const statusEl = document.getElementById('sendStatus');
+    
+    if (!content || content.trim() === '') {
+        statusEl.textContent = 'Error: Message content is required';
+        statusEl.className = 'send-status error';
+        return;
+    }
+    
+    const messages = [];
+    const totalMessages = isBatch ? batchCount : 1;
+    
+    statusEl.textContent = `Sending ${totalMessages} message(s)...`;
+    statusEl.className = 'send-status info';
+    
+    for (let i = 0; i < totalMessages; i++) {
+        const messageContent = isBatch ? `${content} [Batch ${i + 1}/${totalMessages}]` : content;
+        
+        try {
+            const response = await fetch(`${CONFIG.gatewayUrl}/api/v1/messages`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    precedence: precedence,
+                    classification: classification,
+                    sender: sender,
+                    recipient: recipient,
+                    content: messageContent,
+                    ttl: 300
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                messages.push({ success: true, id: data.message_id });
+            } else {
+                const error = await response.json();
+                messages.push({ success: false, error: error.detail?.error?.message || 'Failed' });
+            }
+        } catch (error) {
+            messages.push({ success: false, error: error.message });
+        }
+        
+        // Small delay between batch messages
+        if (isBatch && i < totalMessages - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+    
+    const successCount = messages.filter(m => m.success).length;
+    const failCount = messages.filter(m => !m.success).length;
+    
+    if (failCount === 0) {
+        statusEl.textContent = `Successfully sent ${successCount} message(s)!`;
+        statusEl.className = 'send-status success';
+        // Clear form
+        if (!isBatch) {
+            document.getElementById('messageContent').value = '';
+        }
+        // Refresh data
+        setTimeout(() => fetchAllData(), 1000);
+    } else {
+        statusEl.textContent = `Sent ${successCount}/${totalMessages} message(s). ${failCount} failed.`;
+        statusEl.className = 'send-status error';
+    }
+}
+
+function initializeMessageSender() {
+    const sendBtn = document.getElementById('sendMessageBtn');
+    const batchBtn = document.getElementById('sendBatchBtn');
+    
+    if (sendBtn) {
+        sendBtn.addEventListener('click', async () => {
+            const precedence = document.getElementById('senderPrecedence').value;
+            const classification = document.getElementById('senderClassification').value;
+            const sender = document.getElementById('senderNode').value;
+            const recipient = document.getElementById('recipientNode').value;
+            const content = document.getElementById('messageContent').value;
+            
+            sendBtn.disabled = true;
+            await sendMessage(precedence, classification, sender, recipient, content, false);
+            sendBtn.disabled = false;
+        });
+    }
+    
+    if (batchBtn) {
+        batchBtn.addEventListener('click', async () => {
+            const precedence = document.getElementById('senderPrecedence').value;
+            const classification = document.getElementById('senderClassification').value;
+            const sender = document.getElementById('senderNode').value;
+            const recipient = document.getElementById('recipientNode').value;
+            const content = document.getElementById('messageContent').value;
+            const batchCount = parseInt(document.getElementById('batchCount').value) || 1;
+            
+            if (batchCount < 1 || batchCount > 50) {
+                const statusEl = document.getElementById('sendStatus');
+                statusEl.textContent = 'Error: Batch count must be between 1 and 50';
+                statusEl.className = 'send-status error';
+                return;
+            }
+            
+            batchBtn.disabled = true;
+            await sendMessage(precedence, classification, sender, recipient, content, true, batchCount);
+            batchBtn.disabled = false;
+        });
+    }
 }
 
 // Expose for debugging

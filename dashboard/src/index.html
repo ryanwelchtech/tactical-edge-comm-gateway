@@ -100,6 +100,68 @@
                 </div>
             </section>
 
+            <!-- Message Sender Panel -->
+            <section class="panel sender-panel" style="grid-column: 4;">
+                <h2 class="panel-title">
+                    <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                    Send Message
+                </h2>
+                <div class="sender-form" id="senderForm">
+                    <div class="form-group">
+                        <label for="senderPrecedence">Precedence:</label>
+                        <select id="senderPrecedence" class="form-control">
+                            <option value="FLASH">FLASH</option>
+                            <option value="IMMEDIATE">IMMEDIATE</option>
+                            <option value="PRIORITY">PRIORITY</option>
+                            <option value="ROUTINE" selected>ROUTINE</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="senderClassification">Classification:</label>
+                        <select id="senderClassification" class="form-control">
+                            <option value="UNCLASSIFIED" selected>UNCLASSIFIED</option>
+                            <option value="CONFIDENTIAL">CONFIDENTIAL</option>
+                            <option value="SECRET">SECRET</option>
+                            <option value="TOP_SECRET">TOP_SECRET</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="senderNode">Sender:</label>
+                        <select id="senderNode" class="form-control">
+                            <option value="NODE-ALPHA" selected>NODE-ALPHA</option>
+                            <option value="NODE-BRAVO">NODE-BRAVO</option>
+                            <option value="NODE-CHARLIE">NODE-CHARLIE</option>
+                            <option value="NODE-DELTA">NODE-DELTA</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="recipientNode">Recipient:</label>
+                        <select id="recipientNode" class="form-control">
+                            <option value="NODE-ALPHA">NODE-ALPHA</option>
+                            <option value="NODE-BRAVO" selected>NODE-BRAVO</option>
+                            <option value="NODE-CHARLIE">NODE-CHARLIE</option>
+                            <option value="NODE-DELTA">NODE-DELTA</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="messageContent">Content:</label>
+                        <textarea id="messageContent" class="form-control" rows="3" placeholder="Enter message content..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="batchCount">Batch Count (optional):</label>
+                        <input type="number" id="batchCount" class="form-control" min="1" max="50" value="1" placeholder="1">
+                    </div>
+                    <div class="form-actions">
+                        <button id="sendMessageBtn" class="btn btn-primary">Send Message</button>
+                        <button id="sendBatchBtn" class="btn btn-secondary">Send Batch</button>
+                    </div>
+                    <div id="sendStatus" class="send-status"></div>
+                </div>
+            </section>
+
             <!-- Right Panel - System Metrics -->
             <section class="panel metrics-panel">
                 <h2 class="panel-title">
