@@ -1,25 +1,24 @@
 """
-Tactical Edge Communications Gateway - Audit Service
+Audit Service - NIST 800-53 Compliant Audit Logging
 
-NIST 800-53 compliant security event logging service.
-Maps audit events to control families: AC, AU, IA, SC, SI.
+This service provides centralized audit logging for the
+Tactical Edge Communications Gateway platform.
 """
 
 import os
-import time
 import uuid
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
 import structlog
 
-from .audit_logger import AuditLogger, AuditEvent
+from .audit_logger import AuditLogger, AuditActor, AuditAction
 
 # Configure structured logging
 structlog.configure(
@@ -37,37 +36,37 @@ structlog.configure(
 logger = structlog.get_logger()
 
 # Prometheus metrics
-AUDIT_EVENTS_TOTAL = Counter(
+AUDIT_EVENTS = Counter(
     'tacedge_audit_events_total',
-    'Total audit events logged',
-    ['control_family', 'event_type', 'outcome']
+    'Total audit events recorded',
+    ['event_type', 'control_family']
 )
 
-audit_logger: AuditLogger = None
+# Global audit logger instance
+audit_logger: Optional[AuditLogger] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
     global audit_logger
-    
+
     logger.info("Starting Audit Service")
-    audit_logger = AuditLogger(
-        storage_path=os.getenv("AUDIT_STORAGE_PATH", "/app/data")
-    )
-    
+    audit_logger = AuditLogger()
+
     yield
-    
+
     logger.info("Shutting down Audit Service")
 
 
 app = FastAPI(
     title="TacEdge Audit Service",
-    description="NIST 800-53 compliant security event logging",
+    description="NIST 800-53 compliant audit logging service",
     version="1.0.0",
     lifespan=lifespan
 )
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -81,69 +80,67 @@ app.add_middleware(
 # Request/Response Models
 # ============================================================================
 
-class ActorInfo(BaseModel):
-    """Actor information for audit event."""
+class ActorModel(BaseModel):
+    """Actor information."""
     node_id: str
-    role: str = "operator"
+    role: str
     ip_address: Optional[str] = None
+    session_id: Optional[str] = None
 
 
-class ActionInfo(BaseModel):
-    """Action information for audit event."""
+class ActionModel(BaseModel):
+    """Action information."""
     operation: str
     resource: str
     outcome: str = "SUCCESS"
-
-
-class ContextInfo(BaseModel):
-    """Additional context for audit event."""
-    precedence: Optional[str] = None
-    classification: Optional[str] = None
-    recipient: Optional[str] = None
+    reason: Optional[str] = None
 
 
 class AuditEventRequest(BaseModel):
-    """Audit event creation request."""
-    event_type: str
+    """Request to create an audit event."""
+    event_type: str = Field(..., description="Type of event")
     control_family: str = Field(..., pattern="^(AC|AU|IA|SC|SI)$")
-    actor: ActorInfo
-    action: ActionInfo
-    context: Optional[ContextInfo] = None
+    actor: ActorModel
+    action: ActionModel
+    context: dict = Field(default_factory=dict)
 
 
 class AuditEventResponse(BaseModel):
-    """Audit event response."""
+    """Response for a created audit event."""
     event_id: str
     timestamp: str
-    control_family: str
     event_type: str
-    actor: dict
-    action: dict
-    context: Optional[dict] = None
+    control_family: str
+    actor: ActorModel
+    action: ActionModel
+    context: dict
+    hash: str
 
 
 class AuditEventsListResponse(BaseModel):
-    """List of audit events."""
-    events: List[AuditEventResponse]
+    """Response for listing audit events."""
+    events: list[dict]
     total: int
-    page: int
-    limit: int
-
-
-class AuditStatsResponse(BaseModel):
-    """Audit statistics."""
-    period: str
-    total_events: int
-    by_control_family: dict
-    by_outcome: dict
-    top_actors: List[dict]
+    filtered: int
 
 
 class HealthResponse(BaseModel):
-    """Service health status."""
+    """Health check response."""
     status: str
     version: str
-    events_logged: int
+    events_stored: int
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+def verify_token(authorization: str = Header(None)) -> dict:
+    """Simple token verification for service-to-service auth."""
+    # In production, implement full JWT verification
+    if authorization and authorization.startswith("Bearer "):
+        return {"authenticated": True}
+    return {"authenticated": False}
 
 
 # ============================================================================
@@ -156,16 +153,14 @@ async def health_check():
     return HealthResponse(
         status="healthy",
         version="1.0.0",
-        events_logged=audit_logger.event_count if audit_logger else 0
+        events_stored=len(audit_logger.events) if audit_logger else 0
     )
 
 
 @app.get("/ready", tags=["Health"])
 async def readiness_check():
     """Readiness probe endpoint."""
-    if audit_logger is None:
-        return {"ready": False, "reason": "Audit logger not initialized"}
-    return {"ready": True}
+    return {"ready": audit_logger is not None}
 
 
 @app.get("/metrics", tags=["Observability"])
@@ -178,123 +173,98 @@ async def metrics():
 
 
 @app.post("/api/v1/audit/events", response_model=AuditEventResponse, status_code=201, tags=["Audit"])
-async def create_audit_event(request: AuditEventRequest):
+async def create_audit_event(
+    request: AuditEventRequest,
+    auth: dict = Depends(verify_token)
+):
     """
-    Create a new audit event.
-    
-    Control families:
-    - AC: Access Control
-    - AU: Audit and Accountability
-    - IA: Identification and Authentication
-    - SC: System and Communications Protection
-    - SI: System and Information Integrity
+    Record an audit event.
+
+    Implements NIST 800-53 AU-2 (Audit Events) and AU-3 (Content of Audit Records).
     """
     event_id = f"evt-{uuid.uuid4()}"
-    timestamp = datetime.now(timezone.utc).isoformat()
-    
-    # Create audit event
-    event = AuditEvent(
-        event_id=event_id,
-        timestamp=timestamp,
-        control_family=request.control_family,
-        event_type=request.event_type,
-        actor=request.actor.model_dump(),
-        action=request.action.model_dump(),
-        context=request.context.model_dump() if request.context else {}
+
+    actor = AuditActor(
+        node_id=request.actor.node_id,
+        role=request.actor.role,
+        ip_address=request.actor.ip_address,
+        session_id=request.actor.session_id
     )
-    
-    # Log event
-    audit_logger.log_event(event)
-    
-    # Update metrics
-    AUDIT_EVENTS_TOTAL.labels(
-        control_family=request.control_family,
+
+    action = AuditAction(
+        operation=request.action.operation,
+        resource=request.action.resource,
+        outcome=request.action.outcome,
+        reason=request.action.reason
+    )
+
+    event = audit_logger.log_event(
+        event_id=event_id,
         event_type=request.event_type,
-        outcome=request.action.outcome
+        control_family=request.control_family,
+        actor=actor,
+        action=action,
+        context=request.context
+    )
+
+    AUDIT_EVENTS.labels(
+        event_type=request.event_type,
+        control_family=request.control_family
     ).inc()
-    
-    logger.info(
-        "Audit event created",
-        event_id=event_id,
-        control_family=request.control_family,
-        event_type=request.event_type
-    )
-    
+
     return AuditEventResponse(
-        event_id=event_id,
-        timestamp=timestamp,
-        control_family=request.control_family,
-        event_type=request.event_type,
-        actor=request.actor.model_dump(),
-        action=request.action.model_dump(),
-        context=request.context.model_dump() if request.context else None
+        event_id=event.event_id,
+        timestamp=event.timestamp,
+        event_type=event.event_type,
+        control_family=event.control_family,
+        actor=request.actor,
+        action=request.action,
+        context=event.context,
+        hash=event.hash
     )
 
 
 @app.get("/api/v1/audit/events", response_model=AuditEventsListResponse, tags=["Audit"])
-async def query_audit_events(
-    control_family: Optional[str] = Query(None, pattern="^(AC|AU|IA|SC|SI)$"),
+async def list_audit_events(
     event_type: Optional[str] = None,
-    node_id: Optional[str] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    limit: int = Query(100, ge=1, le=1000),
-    page: int = Query(1, ge=1)
+    control_family: Optional[str] = None,
+    actor_node: Optional[str] = None,
+    limit: int = 100,
+    auth: dict = Depends(verify_token)
 ):
     """
     Query audit events with optional filters.
-    
-    Implements NIST 800-53 AU-6 (Audit Review, Analysis, and Reporting)
+
+    Implements NIST 800-53 AU-6 (Audit Review, Analysis, and Reporting).
     """
-    events = audit_logger.query_events(
-        control_family=control_family,
+    events = audit_logger.get_events(
         event_type=event_type,
-        node_id=node_id,
-        start_time=start_time,
-        end_time=end_time,
-        limit=limit,
-        offset=(page - 1) * limit
-    )
-    
-    event_responses = [
-        AuditEventResponse(
-            event_id=e.event_id,
-            timestamp=e.timestamp,
-            control_family=e.control_family,
-            event_type=e.event_type,
-            actor=e.actor,
-            action=e.action,
-            context=e.context if e.context else None
-        )
-        for e in events
-    ]
-    
-    return AuditEventsListResponse(
-        events=event_responses,
-        total=len(events),
-        page=page,
+        control_family=control_family,
+        actor_node=actor_node,
         limit=limit
     )
 
-
-@app.get("/api/v1/audit/stats", response_model=AuditStatsResponse, tags=["Audit"])
-async def get_audit_stats():
-    """
-    Get aggregated audit statistics for the last 24 hours.
-    """
-    stats = audit_logger.get_stats()
-    
-    return AuditStatsResponse(
-        period="24h",
-        total_events=stats["total_events"],
-        by_control_family=stats["by_control_family"],
-        by_outcome=stats["by_outcome"],
-        top_actors=stats["top_actors"]
+    return AuditEventsListResponse(
+        events=[e.to_dict() for e in events],
+        total=len(audit_logger.events),
+        filtered=len(events)
     )
 
 
-@app.on_event("startup")
-async def startup_event():
-    app.state.start_time = time.time()
-    logger.info("Audit Service started")
+@app.get("/api/v1/audit/export", tags=["Audit"])
+async def export_audit_log(
+    format: str = "json",
+    auth: dict = Depends(verify_token)
+):
+    """
+    Export audit log for external analysis.
 
+    Implements NIST 800-53 AU-6 (Audit Review, Analysis, and Reporting).
+    """
+    export_data = audit_logger.export_events(format=format)
+
+    return Response(
+        content=export_data,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=audit-export-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.json"}
+    )

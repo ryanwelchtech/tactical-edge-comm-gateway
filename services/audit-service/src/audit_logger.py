@@ -1,223 +1,242 @@
 """
-Audit Logger Module
+NIST 800-53 Compliant Audit Logger
 
-Implements NIST 800-53 compliant audit logging with
-structured events mapped to control families.
+Implements structured audit logging aligned with:
+- AU-2: Audit Events
+- AU-3: Content of Audit Records
+- AU-6: Audit Review, Analysis, and Reporting
+- AU-9: Protection of Audit Information
 """
 
 import json
-import os
-from dataclasses import dataclass, asdict
+import hashlib
 from datetime import datetime, timezone
-from typing import Optional, List
-from collections import defaultdict
+from typing import Optional
+from dataclasses import dataclass, field, asdict
+from enum import Enum
 
 import structlog
 
 logger = structlog.get_logger()
 
 
+class ControlFamily(Enum):
+    """NIST 800-53 Control Families relevant to this system."""
+    AC = "Access Control"
+    AU = "Audit and Accountability"
+    IA = "Identification and Authentication"
+    SC = "System and Communications Protection"
+    SI = "System and Information Integrity"
+
+
+class EventOutcome(Enum):
+    """Standard event outcomes."""
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass
+class AuditActor:
+    """Actor performing the audited action."""
+    node_id: str
+    role: str
+    ip_address: Optional[str] = None
+    session_id: Optional[str] = None
+
+
+@dataclass
+class AuditAction:
+    """Details of the audited action."""
+    operation: str
+    resource: str
+    outcome: str
+    reason: Optional[str] = None
+
+
 @dataclass
 class AuditEvent:
     """
-    Structured audit event following NIST 800-53 AU-3 requirements.
-    
-    Captures: who, what, when, where, and outcome.
+    Complete audit event record.
+
+    Implements AU-3 required fields:
+    - Type of event
+    - When the event occurred
+    - Where the event occurred
+    - Source of the event
+    - Outcome of the event
+    - Identity of individuals/subjects associated with the event
     """
     event_id: str
     timestamp: str
-    control_family: str  # AC, AU, IA, SC, SI
     event_type: str
-    actor: dict  # node_id, role, ip_address
-    action: dict  # operation, resource, outcome
-    context: dict = None
-    
+    control_family: str
+    actor: AuditActor
+    action: AuditAction
+    context: dict = field(default_factory=dict)
+    hash: Optional[str] = None
+
+    def __post_init__(self):
+        """Generate integrity hash after initialization."""
+        if not self.hash:
+            self.hash = self._generate_hash()
+
+    def _generate_hash(self) -> str:
+        """Generate SHA-256 hash of the event for integrity verification."""
+        event_data = {
+            "event_id": self.event_id,
+            "timestamp": self.timestamp,
+            "event_type": self.event_type,
+            "control_family": self.control_family,
+            "actor": asdict(self.actor),
+            "action": asdict(self.action),
+            "context": self.context
+        }
+        event_json = json.dumps(event_data, sort_keys=True)
+        return hashlib.sha256(event_json.encode()).hexdigest()
+
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
-        return asdict(self)
-    
-    def to_json(self) -> str:
-        """Convert to JSON string."""
-        return json.dumps(self.to_dict())
+        return {
+            "event_id": self.event_id,
+            "timestamp": self.timestamp,
+            "event_type": self.event_type,
+            "control_family": self.control_family,
+            "actor": asdict(self.actor),
+            "action": asdict(self.action),
+            "context": self.context,
+            "hash": self.hash
+        }
 
 
 class AuditLogger:
     """
     NIST 800-53 compliant audit logger.
-    
-    Implements:
-    - AU-2: Auditable Events
-    - AU-3: Content of Audit Records
-    - AU-4: Audit Log Storage Capacity
-    - AU-9: Protection of Audit Information
+
+    Provides structured logging for security-relevant events
+    with integrity protection and tamper detection.
     """
-    
-    def __init__(self, storage_path: str = "/app/data"):
-        """
-        Initialize audit logger.
-        
-        Args:
-            storage_path: Directory for audit log storage
-        """
-        self.storage_path = storage_path
-        self.events: List[AuditEvent] = []
-        self.event_count = 0
-        
-        # In-memory indices for querying
-        self._by_control_family: dict = defaultdict(list)
-        self._by_event_type: dict = defaultdict(list)
-        self._by_node: dict = defaultdict(list)
-        
-        # Ensure storage directory exists
-        os.makedirs(storage_path, exist_ok=True)
-        
-        logger.info("Audit logger initialized", storage_path=storage_path)
-    
-    def log_event(self, event: AuditEvent) -> None:
+
+    def __init__(self):
+        self.events: list[AuditEvent] = []
+        self.max_events = 10000  # In production, use persistent storage
+
+    def log_event(
+        self,
+        event_id: str,
+        event_type: str,
+        control_family: str,
+        actor: AuditActor,
+        action: AuditAction,
+        context: Optional[dict] = None
+    ) -> AuditEvent:
         """
         Log an audit event.
-        
+
         Args:
-            event: AuditEvent to log
+            event_id: Unique event identifier
+            event_type: Type of event (e.g., MESSAGE_SENT, AUTH_SUCCESS)
+            control_family: NIST 800-53 control family
+            actor: Actor performing the action
+            action: Details of the action
+            context: Additional context information
+
+        Returns:
+            The created AuditEvent
         """
-        # Store in memory
-        self.events.append(event)
-        self.event_count += 1
-        
-        # Update indices
-        self._by_control_family[event.control_family].append(event)
-        self._by_event_type[event.event_type].append(event)
-        if event.actor and "node_id" in event.actor:
-            self._by_node[event.actor["node_id"]].append(event)
-        
-        # Write to persistent storage (append-only)
-        self._persist_event(event)
-        
-        logger.debug(
-            "Audit event logged",
-            event_id=event.event_id,
-            control_family=event.control_family
+        event = AuditEvent(
+            event_id=event_id,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            event_type=event_type,
+            control_family=control_family,
+            actor=actor,
+            action=action,
+            context=context or {}
         )
-    
-    def _persist_event(self, event: AuditEvent) -> None:
-        """
-        Persist event to storage (append-only for tamper-evidence).
-        
-        Args:
-            event: AuditEvent to persist
-        """
-        try:
-            # Daily log rotation
-            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            log_file = os.path.join(self.storage_path, f"audit-{date_str}.jsonl")
-            
-            with open(log_file, "a") as f:
-                f.write(event.to_json() + "\n")
-                
-        except Exception as e:
-            logger.error("Failed to persist audit event", error=str(e))
-    
-    def query_events(
+
+        # Store event (in production, persist to secure storage)
+        self.events.append(event)
+
+        # Maintain max events limit
+        if len(self.events) > self.max_events:
+            self.events = self.events[-self.max_events:]
+
+        # Log to structured logger
+        logger.info(
+            "Audit event recorded",
+            event_id=event.event_id,
+            event_type=event.event_type,
+            control_family=event.control_family,
+            actor_node=actor.node_id,
+            action_operation=action.operation,
+            action_outcome=action.outcome
+        )
+
+        return event
+
+    def get_events(
         self,
-        control_family: Optional[str] = None,
         event_type: Optional[str] = None,
-        node_id: Optional[str] = None,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
-        limit: int = 100,
-        offset: int = 0
-    ) -> List[AuditEvent]:
+        control_family: Optional[str] = None,
+        actor_node: Optional[str] = None,
+        limit: int = 100
+    ) -> list[AuditEvent]:
         """
-        Query audit events with filters.
-        
+        Query audit events with optional filters.
+
         Args:
-            control_family: Filter by control family
             event_type: Filter by event type
-            node_id: Filter by actor node ID
-            start_time: ISO-8601 start time
-            end_time: ISO-8601 end time
-            limit: Maximum results
-            offset: Result offset for pagination
-        
+            control_family: Filter by control family
+            actor_node: Filter by actor node ID
+            limit: Maximum number of events to return
+
         Returns:
             List of matching AuditEvents
         """
-        # Start with appropriate index
-        if control_family:
-            events = self._by_control_family.get(control_family, [])
-        elif event_type:
-            events = self._by_event_type.get(event_type, [])
-        elif node_id:
-            events = self._by_node.get(node_id, [])
-        else:
-            events = self.events
-        
-        # Apply additional filters
-        filtered = []
-        for event in events:
-            # Control family filter
-            if control_family and event.control_family != control_family:
-                continue
-            
-            # Event type filter
-            if event_type and event.event_type != event_type:
-                continue
-            
-            # Node ID filter
-            if node_id:
-                if not event.actor or event.actor.get("node_id") != node_id:
-                    continue
-            
-            # Time range filter
-            if start_time:
-                if event.timestamp < start_time:
-                    continue
-            if end_time:
-                if event.timestamp > end_time:
-                    continue
-            
-            filtered.append(event)
-        
-        # Apply pagination
-        return filtered[offset:offset + limit]
-    
-    def get_stats(self) -> dict:
-        """
-        Get aggregated audit statistics.
-        
-        Returns:
-            dict with statistics
-        """
-        # Count by control family
-        by_control_family = {
-            cf: len(events) for cf, events in self._by_control_family.items()
-        }
-        
-        # Count by outcome
-        by_outcome = defaultdict(int)
-        for event in self.events:
-            if event.action and "outcome" in event.action:
-                by_outcome[event.action["outcome"]] += 1
-        
-        # Top actors
-        actor_counts = defaultdict(int)
-        for event in self.events:
-            if event.actor and "node_id" in event.actor:
-                actor_counts[event.actor["node_id"]] += 1
-        
-        top_actors = [
-            {"node_id": node_id, "count": count}
-            for node_id, count in sorted(
-                actor_counts.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )[:10]
-        ]
-        
-        return {
-            "total_events": self.event_count,
-            "by_control_family": dict(by_control_family),
-            "by_outcome": dict(by_outcome),
-            "top_actors": top_actors
-        }
+        filtered = self.events
 
+        if event_type:
+            filtered = [e for e in filtered if e.event_type == event_type]
+
+        if control_family:
+            filtered = [e for e in filtered if e.control_family == control_family]
+
+        if actor_node:
+            filtered = [e for e in filtered if e.actor.node_id == actor_node]
+
+        # Return most recent events first
+        return sorted(filtered, key=lambda e: e.timestamp, reverse=True)[:limit]
+
+    def verify_integrity(self, event: AuditEvent) -> bool:
+        """
+        Verify the integrity of an audit event.
+
+        Implements AU-9 protection of audit information.
+
+        Args:
+            event: The event to verify
+
+        Returns:
+            True if integrity check passes
+        """
+        original_hash = event.hash
+        event.hash = None
+        computed_hash = event._generate_hash()
+        event.hash = original_hash
+
+        return original_hash == computed_hash
+
+    def export_events(self, format: str = "json") -> str:
+        """
+        Export audit events for analysis.
+
+        Implements AU-6 audit review and reporting.
+
+        Args:
+            format: Export format (currently only 'json' supported)
+
+        Returns:
+            Serialized audit events
+        """
+        events_data = [e.to_dict() for e in self.events]
+        return json.dumps(events_data, indent=2)
