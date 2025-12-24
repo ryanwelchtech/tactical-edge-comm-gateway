@@ -14,13 +14,13 @@ from typing import Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
 
-from .auth import verify_jwt, JWTClaims, require_permission
+from .auth import JWTClaims, require_permission
 from .message_handler import MessageHandler, MessagePrecedence
 
 # Configure structured logging
@@ -65,7 +65,7 @@ http_client: Optional[httpx.AsyncClient] = None
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
     global message_handler, http_client
-    
+
     # Startup
     logger.info("Starting Gateway Core service")
     http_client = httpx.AsyncClient(timeout=30.0)
@@ -75,9 +75,9 @@ async def lifespan(app: FastAPI):
         store_forward_url=os.getenv("STORE_FORWARD_URL", "http://localhost:5003"),
         http_client=http_client
     )
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Gateway Core service")
     await http_client.aclose()
@@ -185,7 +185,7 @@ async def readiness_check():
     # Check downstream service connectivity
     checks = {}
     all_healthy = True
-    
+
     try:
         if http_client:
             # Check crypto service
@@ -197,7 +197,7 @@ async def readiness_check():
             except Exception:
                 checks["crypto_service"] = "unavailable"
                 all_healthy = False
-            
+
             # Check audit service
             try:
                 resp = await http_client.get(
@@ -209,7 +209,7 @@ async def readiness_check():
                 # Audit unavailable is not critical for readiness
     except Exception as e:
         logger.error("Readiness check failed", error=str(e))
-    
+
     return {"ready": all_healthy, "checks": checks}
 
 
@@ -229,7 +229,7 @@ async def send_message(
 ):
     """
     Send a tactical message with specified precedence.
-    
+
     Message precedence levels:
     - FLASH: Immediate threat/engagement (< 100ms)
     - IMMEDIATE: Time-critical operations (< 500ms)
@@ -238,7 +238,7 @@ async def send_message(
     """
     start_time = time.time()
     message_id = f"msg-{uuid.uuid4()}"
-    
+
     logger.info(
         "Received message",
         message_id=message_id,
@@ -247,7 +247,7 @@ async def send_message(
         recipient=request.recipient,
         node_id=claims.node_id
     )
-    
+
     try:
         # Process message through handler
         result = await message_handler.process_message(
@@ -260,19 +260,19 @@ async def send_message(
             ttl=request.ttl,
             jwt_token=claims.raw_token
         )
-        
+
         # Calculate latency and record metrics
         latency = time.time() - start_time
         MESSAGE_LATENCY.labels(precedence=request.precedence).observe(latency)
         MESSAGES_TOTAL.labels(precedence=request.precedence, status=result["status"]).inc()
-        
+
         logger.info(
             "Message processed",
             message_id=message_id,
             status=result["status"],
             latency_ms=int(latency * 1000)
         )
-        
+
         return MessageResponse(
             message_id=message_id,
             status=result["status"],
@@ -280,7 +280,7 @@ async def send_message(
             created_at=datetime.now(timezone.utc).isoformat(),
             estimated_delivery=result.get("estimated_delivery")
         )
-        
+
     except Exception as e:
         MESSAGES_TOTAL.labels(precedence=request.precedence, status="FAILED").inc()
         logger.error("Message processing failed", message_id=message_id, error=str(e))
@@ -293,7 +293,7 @@ async def get_message_status(
     claims: JWTClaims = Depends(require_permission("message:read"))
 ):
     """Retrieve the status of a previously sent message."""
-    
+
     # In production, this would query a message store
     # For demo, return simulated status
     return MessageStatusResponse(
@@ -332,13 +332,13 @@ async def acknowledge_message(
     claims: JWTClaims = Depends(require_permission("message:read"))
 ):
     """Acknowledge receipt of a message."""
-    
+
     logger.info(
         "Message acknowledged",
         message_id=message_id,
         acknowledged_by=claims.node_id
     )
-    
+
     return {
         "message_id": message_id,
         "acknowledged": True,
@@ -352,7 +352,7 @@ async def list_nodes(
     claims: JWTClaims = Depends(require_permission("node:status"))
 ):
     """List all registered tactical nodes and their status."""
-    
+
     # Simulated node list for demo
     nodes = [
         NodeInfo(
@@ -377,9 +377,9 @@ async def list_nodes(
             capabilities=["PRIORITY", "ROUTINE"]
         )
     ]
-    
+
     connected = sum(1 for n in nodes if n.status == "CONNECTED")
-    
+
     return NodesResponse(
         nodes=nodes,
         total=len(nodes),
@@ -393,4 +393,3 @@ async def list_nodes(
 async def startup_event():
     app.state.start_time = time.time()
     logger.info("Gateway Core started", start_time=app.state.start_time)
-

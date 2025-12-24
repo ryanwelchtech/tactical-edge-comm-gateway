@@ -5,7 +5,6 @@ Handles message routing, precedence classification, and coordination
 with downstream services (crypto, audit, store-forward).
 """
 
-import os
 from enum import Enum
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -23,7 +22,7 @@ class MessagePrecedence(Enum):
     IMMEDIATE = "IMMEDIATE"   # Time-critical operations
     PRIORITY = "PRIORITY"     # Urgent operational traffic
     ROUTINE = "ROUTINE"       # Administrative/logistics
-    
+
     @property
     def max_latency_ms(self) -> int:
         """Maximum acceptable latency in milliseconds."""
@@ -34,7 +33,7 @@ class MessagePrecedence(Enum):
             "ROUTINE": 10000
         }
         return latency_map.get(self.value, 10000)
-    
+
     @property
     def priority_value(self) -> int:
         """Numeric priority for queue ordering (lower = higher priority)."""
@@ -60,13 +59,13 @@ class ProcessedMessage:
 class MessageHandler:
     """
     Orchestrates message processing through the gateway pipeline.
-    
+
     Pipeline:
     1. Encrypt message content via Crypto Service
     2. Log event via Audit Service
     3. Route to destination or queue in Store-Forward
     """
-    
+
     def __init__(
         self,
         crypto_service_url: str,
@@ -78,10 +77,10 @@ class MessageHandler:
         self.audit_service_url = audit_service_url
         self.store_forward_url = store_forward_url
         self.http_client = http_client
-        
+
         # Simulated node registry
         self.connected_nodes = {"NODE-ALPHA", "NODE-BRAVO"}
-    
+
     async def process_message(
         self,
         message_id: str,
@@ -95,7 +94,7 @@ class MessageHandler:
     ) -> dict:
         """
         Process a tactical message through the gateway pipeline.
-        
+
         Args:
             message_id: Unique message identifier
             precedence: Message priority level
@@ -105,15 +104,15 @@ class MessageHandler:
             content: Message content
             ttl: Time-to-live in seconds
             jwt_token: JWT token for downstream authentication
-        
+
         Returns:
             dict with status and metadata
         """
         headers = {"Authorization": f"Bearer {jwt_token}"}
-        
+
         # Step 1: Encrypt message content
         encrypted_content = await self._encrypt_content(content, classification, headers)
-        
+
         # Step 2: Log audit event
         await self._log_audit_event(
             message_id=message_id,
@@ -124,7 +123,7 @@ class MessageHandler:
             recipient=recipient,
             headers=headers
         )
-        
+
         # Step 3: Route message
         if recipient in self.connected_nodes:
             # Direct delivery
@@ -145,18 +144,18 @@ class MessageHandler:
                 ttl=ttl,
                 headers=headers
             )
-        
+
         # Calculate estimated delivery
         estimated_delivery = None
         if status == "QUEUED" or status == "TRANSMITTED":
             delivery_time = datetime.now(timezone.utc) + timedelta(milliseconds=precedence.max_latency_ms)
             estimated_delivery = delivery_time.isoformat()
-        
+
         return {
             "status": status,
             "estimated_delivery": estimated_delivery
         }
-    
+
     async def _encrypt_content(
         self,
         content: str,
@@ -174,7 +173,7 @@ class MessageHandler:
                 headers=headers,
                 timeout=5.0
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 logger.debug("Message encrypted successfully")
@@ -186,13 +185,13 @@ class MessageHandler:
                 )
                 # Fallback: return original content (not recommended in production)
                 return content
-                
+
         except httpx.RequestError as e:
             logger.error("Crypto service unavailable", error=str(e))
             # In production, this should fail the request
             # For demo, we continue with unencrypted content
             return content
-    
+
     async def _log_audit_event(
         self,
         message_id: str,
@@ -229,12 +228,12 @@ class MessageHandler:
                 timeout=2.0
             )
             logger.debug("Audit event logged", event_type=event_type)
-            
+
         except httpx.RequestError as e:
             # Audit logging failure should not block message processing
             # but should be alerted on
             logger.warning("Audit service unavailable", error=str(e))
-    
+
     async def _deliver_message(
         self,
         message_id: str,
@@ -253,7 +252,7 @@ class MessageHandler:
             precedence=precedence.value
         )
         return "TRANSMITTED"
-    
+
     async def _queue_message(
         self,
         message_id: str,
@@ -277,7 +276,7 @@ class MessageHandler:
                 headers=headers,
                 timeout=5.0
             )
-            
+
             if response.status_code in (200, 201):
                 logger.info(
                     "Message queued for store-forward",
@@ -292,8 +291,7 @@ class MessageHandler:
                     status_code=response.status_code
                 )
                 return "QUEUED"
-                
+
         except httpx.RequestError as e:
             logger.error("Store-forward service unavailable", error=str(e))
             return "QUEUED"
-

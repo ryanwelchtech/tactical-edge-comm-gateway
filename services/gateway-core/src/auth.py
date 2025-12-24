@@ -6,7 +6,6 @@ role-based access control (RBAC) for tactical operations.
 """
 
 import os
-from typing import Optional
 from dataclasses import dataclass
 
 from fastapi import HTTPException, Header, Depends
@@ -39,10 +38,10 @@ class JWTClaims:
     raw_token: str
 
 
-def verify_jwt(authorization: Optional[str] = Header(None)) -> JWTClaims:
+def verify_jwt(authorization: str = Header(None)) -> JWTClaims:
     """
     Verify and decode JWT token from Authorization header.
-    
+
     Implements NIST 800-53 IA-2 (Identification and Authentication)
     """
     if not authorization:
@@ -56,7 +55,7 @@ def verify_jwt(authorization: Optional[str] = Header(None)) -> JWTClaims:
                 }
             }
         )
-    
+
     # Extract token from Bearer scheme
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
@@ -70,9 +69,9 @@ def verify_jwt(authorization: Optional[str] = Header(None)) -> JWTClaims:
                 }
             }
         )
-    
+
     token = parts[1]
-    
+
     try:
         # Decode and verify JWT
         payload = jwt.decode(
@@ -81,27 +80,27 @@ def verify_jwt(authorization: Optional[str] = Header(None)) -> JWTClaims:
             algorithms=[JWT_ALGORITHM],
             options={"require_exp": True, "require_sub": True}
         )
-        
+
         # Extract claims
         subject = payload.get("sub")
         node_id = payload.get("node_id", subject)
         role = payload.get("role", "operator")
         classification_level = payload.get("classification_level", "UNCLASSIFIED")
-        
+
         # Get permissions from role
         permissions = ROLE_PERMISSIONS.get(role, [])
-        
+
         # Override with explicit permissions if provided
         if "permissions" in payload:
             permissions = payload["permissions"]
-        
+
         logger.info(
             "JWT validated",
             subject=subject,
             node_id=node_id,
             role=role
         )
-        
+
         return JWTClaims(
             subject=subject,
             node_id=node_id,
@@ -110,7 +109,7 @@ def verify_jwt(authorization: Optional[str] = Header(None)) -> JWTClaims:
             classification_level=classification_level,
             raw_token=token
         )
-        
+
     except JWTError as e:
         logger.warning("JWT validation failed", error=str(e))
         raise HTTPException(
@@ -127,9 +126,9 @@ def verify_jwt(authorization: Optional[str] = Header(None)) -> JWTClaims:
 def require_permission(permission: str):
     """
     Dependency that requires a specific permission.
-    
+
     Implements NIST 800-53 AC-3 (Access Enforcement)
-    
+
     Usage:
         @app.get("/endpoint")
         async def endpoint(claims: JWTClaims = Depends(require_permission("message:send"))):
@@ -153,14 +152,14 @@ def require_permission(permission: str):
                 }
             )
         return claims
-    
+
     return permission_checker
 
 
 def require_classification(level: str):
     """
     Dependency that requires a minimum classification level.
-    
+
     Classification hierarchy: UNCLASSIFIED < CONFIDENTIAL < SECRET < TOP_SECRET
     """
     classification_hierarchy = {
@@ -169,11 +168,11 @@ def require_classification(level: str):
         "SECRET": 2,
         "TOP_SECRET": 3
     }
-    
+
     def classification_checker(claims: JWTClaims = Depends(verify_jwt)) -> JWTClaims:
         user_level = classification_hierarchy.get(claims.classification_level, 0)
         required_level = classification_hierarchy.get(level, 0)
-        
+
         if user_level < required_level:
             logger.warning(
                 "Classification level insufficient",
@@ -191,6 +190,5 @@ def require_classification(level: str):
                 }
             )
         return claims
-    
-    return classification_checker
 
+    return classification_checker
