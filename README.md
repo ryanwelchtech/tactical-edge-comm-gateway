@@ -10,6 +10,8 @@ A **Zero Trust**, containerized tactical communications gateway platform designe
 
 **[🎥 Dashboard Demo](docs/images/dashboard-demo.gif)** - Watch the tactical operations dashboard in action
 
+**[📖 Dashboard User Guide](docs/UI_GUIDE.md)** - Complete guide to using the tactical operations dashboard interface
+
 ---
 
 ## 🎯 Mission Statement
@@ -102,11 +104,6 @@ tactical-edge-comm-gateway/
 │   └── workflows/
 │       ├── ci.yml                     # CI/CD pipeline
 │       └── security-scan.yml          # Container security scanning
-├── docs/
-│   ├── ARCHITECTURE.md                # Detailed system architecture
-│   ├── SECURITY.md                    # Security design & controls
-│   ├── OPERATIONS.md                  # Operational runbook
-│   └── API.md                         # API documentation
 ├── services/
 │   ├── gateway-core/                  # Message routing & precedence
 │   │   ├── Dockerfile
@@ -153,13 +150,17 @@ tactical-edge-comm-gateway/
 │           ├── services.yaml
 │           └── network-policies.yaml
 ├── scripts/
-│   ├── demo.ps1                       # Demo script (Windows)
-│   ├── demo.sh                        # Demo script (Linux/Mac)
-│   └── generate-jwt.py                # JWT token generator
-└── tests/
-    ├── test_gateway.py
-    ├── test_crypto.py
-    └── test_integration.py
+│   └── generate-jwt.py                # JWT token generator for API testing
+├── tests/                              # Unit and integration tests
+│   ├── test_gateway.py                # Gateway service tests
+│   ├── test_crypto.py                 # Crypto service tests
+│   └── test_integration.py             # End-to-end integration tests
+└── docs/
+    ├── ARCHITECTURE.md                 # Detailed system architecture
+    ├── SECURITY.md                     # Security design & controls
+    ├── OPERATIONS.md                   # Operational runbook
+    ├── API.md                          # API documentation
+    └── UI_GUIDE.md                     # Dashboard user guide
 ```
 
 ---
@@ -247,17 +248,34 @@ docker-compose up -d
 # Access the dashboard at http://localhost:8081
 ```
 
-### 2. Interactive Dashboard Features
+### 2. Using the Dashboard
 
-The tactical operations dashboard provides:
+**[📖 Complete UI Guide](docs/UI_GUIDE.md)** - Comprehensive guide to using the tactical operations dashboard.
 
-- **Real-time Message Queue Monitoring**: Visualize FLASH, IMMEDIATE, PRIORITY, and ROUTINE message queues
+#### Quick Start
+
+1. **Access the Dashboard:** Open `http://localhost:8081` in your browser
+2. **Dashboard starts clean:** No messages displayed on initial load
+3. **Send a message:**
+   - Fill in the form on the right panel
+   - Select precedence, classification, sender, recipient
+   - Enter message content
+   - Click "Send Message"
+4. **View messages:** Messages appear in "Recent Messages" within 2 seconds
+5. **View details:** Click any message to see full content and metadata
+6. **Clear messages:** Click "Clear" button to remove all messages from the list
+
+#### Key Features
+
+- **Real-time Message Queue Monitoring**: Visualize FLASH, IMMEDIATE, PRIORITY, and ROUTINE message queues with live updates
 - **Network Node Health**: Monitor 4+ tactical nodes with connection status and last-seen timestamps
 - **System Metrics**: Track messages/sec, average latency, uptime, and authentication failures
 - **Service Health Monitoring**: Real-time status of all microservices (gateway-core, crypto-service, audit-service, store-forward, redis)
 - **Recent Messages Timeline**: View delivered messages with precedence tags, sender/recipient, and timestamps
+- **Clickable Messages**: Click any message to view full content, metadata, and audit trail
+- **Clear Messages**: Remove all messages from the list (stays cleared until new messages are sent)
+- **Web-based Message Sender**: Send single or batch messages directly from the dashboard
 - **Audit Event Logging**: NIST 800-53 compliant audit trail with event types and timestamps
-- **Web-based Message Sender**: Send single or batch messages directly from the dashboard with customizable precedence, classification, and content
 
 ### 3. API Demo
 

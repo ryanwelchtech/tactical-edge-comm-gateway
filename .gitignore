@@ -79,8 +79,10 @@ docs/LINKEDIN_POST.md
 docs/RESUME_BULLETS.md
 docs/DEPLOYMENT.md
 
-# Local scripts (contain secrets)
+# Local scripts (contain secrets or not documented)
 scripts/send-message.ps1
 scripts/send-batch-messages.ps1
 scripts/flush-queue.ps1
+scripts/demo.ps1
+scripts/demo.sh
 

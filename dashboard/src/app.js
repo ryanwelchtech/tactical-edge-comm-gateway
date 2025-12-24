@@ -47,9 +47,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeDashboard() {
-    // Clear messages on first load
+    // Clear messages on first load/reload
     state.messages = [];
     state.allAuditEvents = [];
+    state.messagesClearedAt = null;  // Reset clear timestamp on fresh load
     renderMessages();
 
     // Load initial data from APIs
