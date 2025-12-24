@@ -371,10 +371,17 @@ async def list_nodes(
         ),
         NodeInfo(
             node_id="NODE-CHARLIE",
-            status="DISCONNECTED",
-            last_seen="2024-12-23T18:15:00Z",
+            status="CONNECTED",
+            last_seen=datetime.now(timezone.utc).isoformat(),
             ip_address="10.0.1.52",
-            capabilities=["PRIORITY", "ROUTINE"]
+            capabilities=["FLASH", "IMMEDIATE", "PRIORITY", "ROUTINE"]
+        ),
+        NodeInfo(
+            node_id="NODE-DELTA",
+            status="CONNECTED",
+            last_seen=datetime.now(timezone.utc).isoformat(),
+            ip_address="10.0.1.53",
+            capabilities=["FLASH", "IMMEDIATE", "PRIORITY", "ROUTINE"]
         )
     ]
 
