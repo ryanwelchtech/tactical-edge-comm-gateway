@@ -158,10 +158,18 @@ async function fetchServiceHealth() {
 async function fetchAuditEvents() {
     try {
         // Fetch more events to ensure we catch all recent messages
-        const res = await fetch(`${CONFIG.auditUrl}/api/v1/audit/events?limit=200`);
+        // Note: Audit service may require auth, but for demo we try without first
+        const token = await getToken();
+        const res = await fetch(`${CONFIG.auditUrl}/api/v1/audit/events?limit=200`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
         if (res.ok) {
             const data = await res.json();
             const events = data.events || [];
+            
+            console.log(`[fetchAuditEvents] Fetched ${events.length} audit events`);
 
             // Show most recent 10 audit events (not just 5)
             state.auditEvents = events.slice(0, 10).map(event => ({
@@ -177,6 +185,8 @@ async function fetchAuditEvents() {
 
             // Update metrics based on audit events
             updateMetricsFromAudit(events);
+        } else {
+            console.error(`[fetchAuditEvents] Failed to fetch: ${res.status} ${res.statusText}`);
         }
     } catch (error) {
         console.log('Audit API not available, using demo data');
@@ -211,6 +221,10 @@ async function fetchMessageContent(messageId) {
 async function extractMessagesFromAudit() {
     // Extract ALL MESSAGE_SENT events from audit (not just first 5)
     const allEvents = state.allAuditEvents || [];
+    
+    // Debug: Log total events and MESSAGE_SENT count
+    const messageSentEvents = allEvents.filter(e => e.event_type === 'MESSAGE_SENT');
+    console.log(`[extractMessagesFromAudit] Total events: ${allEvents.length}, MESSAGE_SENT events: ${messageSentEvents.length}`);
     
     // If messages were cleared, filter out events created before the clear time
     // Add a small buffer (100ms) to account for timing differences
@@ -279,8 +293,10 @@ async function extractMessagesFromAudit() {
 
         // Keep only last 20 messages
         state.messages = Array.from(messageMap.values()).slice(0, 20);
+        console.log(`[extractMessagesFromAudit] Extracted ${state.messages.length} messages`);
         renderMessages();
     } else {
+        console.log(`[extractMessagesFromAudit] No messages found in audit events`);
         // If no messages from audit, clear the messages list
         // Only load demo data if messages were never cleared
         if (state.messagesClearedAt === null && state.messages.length === 0) {
@@ -688,10 +704,22 @@ async function sendMessage(precedence, classification, sender, recipient, conten
         if (!isBatch) {
             document.getElementById('messageContent').value = '';
         }
-        // Refresh data immediately, then again after a short delay to catch audit events
+        // Refresh data immediately, then again after delays to catch audit events
+        // Audit service may need time to persist events
+        console.log(`[sendMessage] Message sent successfully, refreshing data...`);
         fetchAllData();
-        setTimeout(() => fetchAllData(), 500);
-        setTimeout(() => fetchAllData(), 2000);
+        setTimeout(() => {
+            console.log(`[sendMessage] First refresh (500ms delay)`);
+            fetchAllData();
+        }, 500);
+        setTimeout(() => {
+            console.log(`[sendMessage] Second refresh (2s delay)`);
+            fetchAllData();
+        }, 2000);
+        setTimeout(() => {
+            console.log(`[sendMessage] Third refresh (5s delay)`);
+            fetchAllData();
+        }, 5000);
     } else {
         statusEl.textContent = `Sent ${successCount}/${totalMessages} message(s). ${failCount} failed.`;
         statusEl.className = 'send-status error';
