@@ -76,6 +76,10 @@ async function fetchNodes() {
             const data = await res.json();
             state.nodes = data.nodes || [];
             renderNodes();
+        } else {
+            // Auth failed or other error - use demo data
+            console.log('Nodes API returned error, using demo data');
+            loadDemoNodes();
         }
     } catch (error) {
         console.log('Nodes API not available, using demo data');
