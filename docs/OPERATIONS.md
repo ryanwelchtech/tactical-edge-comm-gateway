@@ -4,6 +4,10 @@
 
 This document provides operational guidance for deploying, monitoring, and troubleshooting the Tactical Edge Communications Gateway.
 
+**📹 Demo Videos:**
+- **[Dashboard Demo](images/dashboard-demo.gif)** - Full dashboard walkthrough
+- **[API Demo](images/api-demo.gif)** - Sending messages via REST API
+
 ---
 
 ## Deployment

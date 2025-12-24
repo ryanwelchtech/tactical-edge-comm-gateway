@@ -239,6 +239,10 @@ kubectl port-forward svc/dashboard -n tacedge-system 8080:80
 
 **Watch the full demo:** The dashboard demonstrates real-time message routing, priority-based queuing, and comprehensive audit logging in action.
 
+![API Demo](docs/images/api-demo.gif)
+
+**API Demo:** See how to send messages via the REST API with JWT authentication.
+
 ### 1. Start the System
 
 ```bash
@@ -299,7 +303,83 @@ curl -X POST http://localhost:5000/api/v1/messages \
 # View messages in the dashboard - they appear in real-time!
 ```
 
-### 4. Dashboard Features Demonstrated
+### 4. Priority-Based Queuing Demo
+
+The system implements **military-standard priority-based message queuing** where messages are processed in strict precedence order: **FLASH → IMMEDIATE → PRIORITY → ROUTINE**.
+
+#### How Priority-Based Queuing Works
+
+1. **Separate Queues by Precedence**: Each message precedence level has its own dedicated queue in Redis
+   - `FLASH` queue (Priority 1) - Highest priority
+   - `IMMEDIATE` queue (Priority 2)
+   - `PRIORITY` queue (Priority 3)
+   - `ROUTINE` queue (Priority 4) - Lowest priority
+
+2. **Automatic Priority Processing**: A background worker processes queues every 2 seconds in strict priority order:
+   - First, all FLASH messages are processed
+   - Then, all IMMEDIATE messages
+   - Then, all PRIORITY messages
+   - Finally, all ROUTINE messages
+
+3. **Queue Depth Visualization**: The dashboard displays real-time queue depths for each precedence level in the "Message Queue Status" panel
+
+#### Step-by-Step: Demonstrating Priority-Based Queuing
+
+**Step 1: Send Messages with Different Precedence Levels**
+
+Using the dashboard's "Send Message" panel, send messages in this order:
+
+1. Send a **ROUTINE** message: "Routine status update"
+2. Send a **PRIORITY** message: "Priority operational request"
+3. Send an **IMMEDIATE** message: "Immediate action required"
+4. Send a **FLASH** message: "FLASH: Critical alert!"
+
+**Step 2: Observe Queue Depths**
+
+Watch the "Message Queue Status" panel:
+- You'll see queue counts increase: `ROUTINE: 1`, `PRIORITY: 1`, `IMMEDIATE: 1`, `FLASH: 1`
+- The "Total Queued" will show `4`
+
+**Step 3: Watch Priority Processing**
+
+Within 2 seconds, observe the automatic processing:
+- **FLASH** queue processes first (count goes to 0)
+- Then **IMMEDIATE** (count goes to 0)
+- Then **PRIORITY** (count goes to 0)
+- Finally **ROUTINE** (count goes to 0)
+
+**Step 4: Verify Processing Order**
+
+Check the "Recent Messages" panel:
+- Messages appear in the order they were **processed** (not sent)
+- FLASH message appears first (even though it was sent last)
+- Followed by IMMEDIATE, PRIORITY, then ROUTINE
+
+**Step 5: Test with Multiple Messages**
+
+Send a batch of messages to see the queue in action:
+
+1. Send **5 ROUTINE** messages (batch count: 5)
+2. Send **3 PRIORITY** messages (batch count: 3)
+3. Send **2 IMMEDIATE** messages (batch count: 2)
+4. Send **1 FLASH** message
+
+**Expected Behavior:**
+- Queue depths: FLASH: 1, IMMEDIATE: 2, PRIORITY: 3, ROUTINE: 5
+- Processing order: FLASH (1) → IMMEDIATE (2) → PRIORITY (3) → ROUTINE (5)
+- All messages process within ~20 seconds (2 seconds per queue cycle)
+
+#### Key Observations
+
+✅ **Guaranteed Priority Order**: Higher precedence messages **always** process before lower precedence, regardless of send time
+
+✅ **Real-Time Queue Monitoring**: Watch queue depths update in real-time as messages are enqueued and processed
+
+✅ **Automatic Processing**: No manual intervention needed - the background worker handles all queue processing
+
+✅ **Store-and-Forward**: If services are temporarily unavailable, messages remain queued and process automatically when connectivity is restored
+
+### 5. Dashboard Features Demonstrated
 
 - **Priority-Based Message Routing**: Send messages with different precedence levels and watch them route through the appropriate queues
 - **Store-and-Forward**: Messages automatically queue when services are unavailable and forward when connectivity is restored

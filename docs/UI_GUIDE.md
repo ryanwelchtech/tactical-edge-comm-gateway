@@ -4,6 +4,10 @@
 
 The Tactical Operations Dashboard provides a real-time interface for monitoring and managing the TacEdge Gateway communications platform. The dashboard displays network node status, message queues, system metrics, and allows you to send messages directly from the web interface.
 
+**📹 Demo Videos:**
+- **[Dashboard Demo](images/dashboard-demo.gif)** - Full dashboard walkthrough
+- **[API Demo](images/api-demo.gif)** - Sending messages via REST API
+
 ## Accessing the Dashboard
 
 1. **Start the system:**
@@ -161,9 +165,51 @@ The dashboard automatically refreshes every 2 seconds to show:
 - Service health status
 - Network node last-seen timestamps
 
+## Priority-Based Queuing
+
+The system implements **military-standard priority-based message queuing** where messages are automatically processed in strict precedence order.
+
+### How It Works
+
+1. **Separate Queues**: Each precedence level (FLASH, IMMEDIATE, PRIORITY, ROUTINE) has its own dedicated queue
+2. **Priority Processing**: A background worker processes queues every 2 seconds in strict order:
+   - FLASH messages process first (highest priority)
+   - Then IMMEDIATE
+   - Then PRIORITY
+   - Finally ROUTINE (lowest priority)
+3. **Queue Visualization**: The "Message Queue Status" panel shows real-time queue depths for each precedence level
+
+### Demonstrating Priority Queuing
+
+**Test Scenario:**
+
+1. **Send messages in reverse priority order:**
+   - Send a ROUTINE message
+   - Send a PRIORITY message
+   - Send an IMMEDIATE message
+   - Send a FLASH message
+
+2. **Observe the queues:**
+   - Watch queue counts increase in the "Message Queue Status" panel
+   - All four queues will show 1 message each
+
+3. **Watch automatic processing:**
+   - Within 2 seconds, FLASH processes first (count → 0)
+   - Then IMMEDIATE (count → 0)
+   - Then PRIORITY (count → 0)
+   - Finally ROUTINE (count → 0)
+
+4. **Verify in Recent Messages:**
+   - Messages appear in **processing order** (not send order)
+   - FLASH appears first, even though it was sent last
+   - Followed by IMMEDIATE, PRIORITY, then ROUTINE
+
+**Key Takeaway:** Higher precedence messages **always** process before lower precedence, regardless of when they were sent.
+
 ## Tips
 
 - **Message Precedence:** Use FLASH for critical alerts, ROUTINE for standard communications
+- **Priority Queuing:** Send messages with different precedence levels to see priority-based processing in action
 - **Batch Sending:** Useful for testing queue behavior and load scenarios
 - **Clear Messages:** Use before demos to start with a clean slate
 - **Message Details:** Click any message to see full content and metadata
