@@ -189,6 +189,12 @@ async function fetchAuditEvents() {
             updateMetricsFromAudit(events);
         } else {
             console.error(`[fetchAuditEvents] Failed to fetch: ${res.status} ${res.statusText}`);
+            try {
+                const errorText = await res.text();
+                console.error(`[fetchAuditEvents] Error details:`, errorText);
+            } catch (e) {
+                console.error(`[fetchAuditEvents] Could not read error response`);
+            }
         }
     } catch (error) {
         console.log('Audit API not available, using demo data');
@@ -231,15 +237,25 @@ async function extractMessagesFromAudit() {
     
     // First, filter by dashboard initialization time - only show messages created AFTER dashboard was loaded
     // This ensures no messages from previous sessions appear on first load
-    // Note: This is only used on initial load, not after clearing
+    // Note: Add a 2-second buffer to account for timing differences between services
     let filteredEvents = allEvents;
     if (state.dashboardInitTime && state.clearedMessageIds.size === 0) {
         // Only apply init time filter if we haven't cleared messages yet
         // Once user clears, we rely on clearedMessageIds instead
         const initTime = state.dashboardInitTime;
+        const bufferTime = initTime - (2 * 1000); // 2 seconds before init time to account for clock skew
         filteredEvents = allEvents.filter(e => {
             const eventTime = new Date(e.timestamp).getTime();
-            return eventTime > initTime; // Only include events after dashboard initialization
+            const isAfterInit = eventTime > bufferTime; // Include events 2 seconds before init (buffer for timing)
+            if (e.event_type === 'MESSAGE_SENT' && !isAfterInit) {
+                console.log(`[extractMessagesFromAudit] Filtered out message (before init time):`, {
+                    eventTime: new Date(eventTime).toISOString(),
+                    initTime: new Date(initTime).toISOString(),
+                    bufferTime: new Date(bufferTime).toISOString(),
+                    messageId: e.action?.resource
+                });
+            }
+            return isAfterInit;
         });
         console.log(`[extractMessagesFromAudit] After init time filter (${new Date(initTime).toISOString()}): ${filteredEvents.length} events (removed ${allEvents.length - filteredEvents.length} old events)`);
     } else if (state.dashboardInitTime && state.clearedMessageIds.size > 0) {
@@ -282,6 +298,16 @@ async function extractMessagesFromAudit() {
             sender: messageSentFiltered[0].actor?.node_id,
             recipient: messageSentFiltered[0].context?.recipient
         });
+    } else {
+        // Debug: show what MESSAGE_SENT events we have before filtering
+        const allMessageSent = allEvents.filter(e => e.event_type === 'MESSAGE_SENT');
+        if (allMessageSent.length > 0) {
+            console.log(`[extractMessagesFromAudit] Found ${allMessageSent.length} MESSAGE_SENT events before filtering, but 0 after. Sample:`, {
+                timestamp: allMessageSent[0].timestamp,
+                initTime: state.dashboardInitTime ? new Date(state.dashboardInitTime).toISOString() : 'null',
+                clearedIds: state.clearedMessageIds.size
+            });
+        }
     }
     
     const messageEvents = await Promise.all(
