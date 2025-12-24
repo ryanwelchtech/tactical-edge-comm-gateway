@@ -79,4 +79,6 @@ docs/LINKEDIN_POST.md
 
 # Local scripts (contain secrets)
 scripts/send-message.ps1
+scripts/send-batch-messages.ps1
+scripts/flush-queue.ps1
 

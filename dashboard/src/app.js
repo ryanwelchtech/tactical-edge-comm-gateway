@@ -4,11 +4,11 @@
  */
 
 // Configuration
-const CONFIG = {
+    const CONFIG = {
     gatewayUrl: 'http://localhost:5000',
     storeForwardUrl: 'http://localhost:5003',
     auditUrl: 'http://localhost:5002',
-    refreshInterval: 3000,
+    refreshInterval: 2000, // Refresh every 2 seconds for more real-time updates
     animationDuration: 500
 };
 
@@ -140,12 +140,13 @@ async function fetchServiceHealth() {
 
 async function fetchAuditEvents() {
     try {
-        const res = await fetch(`${CONFIG.auditUrl}/api/v1/audit/events?limit=50`);
+        const res = await fetch(`${CONFIG.auditUrl}/api/v1/audit/events?limit=100`);
         if (res.ok) {
             const data = await res.json();
             const events = data.events || [];
 
-            state.auditEvents = events.slice(0, 5).map(event => ({
+            // Show most recent 10 audit events (not just 5)
+            state.auditEvents = events.slice(0, 10).map(event => ({
                 control: event.control_family || 'AU',
                 event: `${event.event_type || 'EVENT'} - ${event.action?.operation || 'N/A'}`,
                 time: formatTime(event.timestamp),
@@ -170,19 +171,26 @@ function extractMessagesFromAudit() {
     const allEvents = state.allAuditEvents || [];
     const messageEvents = allEvents
         .filter(e => e.event_type === 'MESSAGE_SENT')
-        .map(e => ({
-            id: e.action?.resource?.replace('message:', '') || `msg-${e.event_id}`,
-            precedence: e.context?.precedence || 'ROUTINE',
-            classification: e.context?.classification || 'UNCLASSIFIED',
-            sender: e.actor?.node_id || 'UNKNOWN',
-            recipient: e.context?.recipient || 'UNKNOWN',
-            content: e.context?.content || 'Message content not available in audit log',
-            status: e.action?.outcome === 'SUCCESS' ? 'DELIVERED' : 'PENDING',
-            time: formatTime(e.timestamp),
-            timestamp: e.timestamp,
-            eventId: e.event_id,
-            raw: e
-        }))
+        .map(e => {
+            // Debug: log the event structure to see what's available
+            if (e.context && !e.context.content) {
+                console.log('Event context:', e.context);
+            }
+            
+            return {
+                id: e.action?.resource?.replace('message:', '') || `msg-${e.event_id}`,
+                precedence: e.context?.precedence || 'ROUTINE',
+                classification: e.context?.classification || 'UNCLASSIFIED',
+                sender: e.actor?.node_id || 'UNKNOWN',
+                recipient: e.context?.recipient || 'UNKNOWN',
+                content: e.context?.content || e.context?.message_content || 'Message content not available in audit log',
+                status: e.action?.outcome === 'SUCCESS' ? 'DELIVERED' : 'PENDING',
+                time: formatTime(e.timestamp),
+                timestamp: e.timestamp,
+                eventId: e.event_id,
+                raw: e
+            };
+        })
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by newest first
 
     if (messageEvents.length > 0) {
@@ -213,7 +221,15 @@ function updateMetricsFromAudit(events) {
         return e.event_type === 'MESSAGE_SENT' && eventTime > oneMinuteAgo;
     });
 
-    state.metrics.messagesPerSec = Math.round(recentMessages.length / 60 * 10) / 10 || Math.floor(Math.random() * 30) + 5;
+    // Calculate messages per second from recent activity
+    if (recentMessages.length > 0) {
+        const oldestTime = Math.min(...recentMessages.map(e => new Date(e.timestamp).getTime()));
+        const timeSpan = (Date.now() - oldestTime) / 1000; // seconds
+        state.metrics.messagesPerSec = timeSpan > 0 ? Math.round((recentMessages.length / timeSpan) * 10) / 10 : recentMessages.length;
+    } else {
+        // If no recent messages, show 0 or a small baseline
+        state.metrics.messagesPerSec = 0;
+    }
 
     // Calculate uptime
     const uptimeMs = Date.now() - state.startTime;
@@ -222,8 +238,22 @@ function updateMetricsFromAudit(events) {
     state.metrics.uptime = uptimeHours;
     state.metrics.uptimeMinutes = uptimeMinutes;
 
-    // Random latency for demo
-    state.metrics.avgLatency = Math.floor(Math.random() * 50) + 20;
+    // Count auth failures from audit events
+    const authFailures = events.filter(e => 
+        e.event_type === 'AUTH_FAILURE' || 
+        (e.event_type === 'AUTH' && e.action?.outcome === 'FAILURE')
+    ).length;
+    state.metrics.authFailures = authFailures;
+
+    // Calculate average latency from events with latency data
+    const latencyEvents = events.filter(e => e.context?.latency_ms);
+    if (latencyEvents.length > 0) {
+        const totalLatency = latencyEvents.reduce((sum, e) => sum + (e.context.latency_ms || 0), 0);
+        state.metrics.avgLatency = Math.round(totalLatency / latencyEvents.length);
+    } else {
+        // Fallback to reasonable default
+        state.metrics.avgLatency = 45;
+    }
 
     renderMetrics();
 }
