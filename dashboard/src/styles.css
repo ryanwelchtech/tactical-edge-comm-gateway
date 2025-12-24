@@ -239,11 +239,16 @@ body::before {
     border-right: none;
 }
 
+.left-column {
+    gap: 0;
+}
+
 .left-column .panel {
     border-right: 1px solid var(--border-primary);
     border-bottom: 1px solid var(--border-primary);
     flex: 1;
     min-height: 0;
+    margin: 0;
 }
 
 .left-column .panel:last-child {
@@ -253,11 +258,15 @@ body::before {
 .network-panel {
     flex: 0 0 auto;
     min-height: fit-content;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-primary);
 }
 
 .metrics-panel {
     flex: 1;
     min-height: 0;
+    margin-top: 0;
+    border-top: none;
 }
 
 .queue-panel {
@@ -308,6 +317,17 @@ body::before {
     text-transform: uppercase;
     letter-spacing: 1px;
     margin: 16px 0 10px;
+}
+
+.messages-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.messages-header .subsection-title {
+    margin: 0;
 }
 
 /* ============================================
@@ -843,6 +863,15 @@ body::before {
 .btn-secondary:hover {
     background: var(--bg-card-hover);
     border-color: var(--accent-primary);
+}
+
+#clearMessagesBtn {
+    padding: 4px 10px;
+    font-size: 10px;
+    flex: 0 0 auto;
+    min-width: auto;
+    height: auto;
+    line-height: 1.2;
 }
 
 .btn:disabled {
