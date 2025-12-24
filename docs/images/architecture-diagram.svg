@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1a365d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2c5282;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#48bb78;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#38a169;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="coreGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4299e1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3182ce;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="serviceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ed8936;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#dd6b20;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="dashGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9f7aea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#805ad5;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="900" height="600" fill="#f7fafc"/>
+  
+  <!-- Header -->
+  <rect x="0" y="0" width="900" height="50" fill="url(#headerGrad)"/>
+  <text x="450" y="32" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white">TACTICAL EDGE COMMUNICATIONS GATEWAY</text>
+  
+  <!-- Main Container Border -->
+  <rect x="20" y="70" width="860" height="510" rx="10" fill="none" stroke="#2d3748" stroke-width="2" stroke-dasharray="5,5"/>
+  <text x="40" y="95" font-family="Arial, sans-serif" font-size="12" fill="#4a5568">ZERO TRUST SECURITY BOUNDARY</text>
+  
+  <!-- Tactical Node A -->
+  <g filter="url(#shadow)">
+    <rect x="50" y="150" width="140" height="100" rx="8" fill="url(#nodeGrad)"/>
+    <text x="120" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">TACTICAL</text>
+    <text x="120" y="205" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">NODE A</text>
+    <text x="120" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">(Sender)</text>
+  </g>
+  
+  <!-- Gateway Core -->
+  <g filter="url(#shadow)">
+    <rect x="350" y="130" width="200" height="140" rx="8" fill="url(#coreGrad)"/>
+    <text x="450" y="165" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">GATEWAY</text>
+    <text x="450" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">CORE</text>
+    <text x="450" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Message Routing</text>
+    <text x="450" y="235" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Precedence Handling</text>
+    <text x="450" y="250" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">JWT Validation</text>
+  </g>
+  
+  <!-- Tactical Node B -->
+  <g filter="url(#shadow)">
+    <rect x="710" y="150" width="140" height="100" rx="8" fill="url(#nodeGrad)"/>
+    <text x="780" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">TACTICAL</text>
+    <text x="780" y="205" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">NODE B</text>
+    <text x="780" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">(Receiver)</text>
+  </g>
+  
+  <!-- Connection arrows top row -->
+  <path d="M190 200 L350 200" stroke="#2d3748" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M350 200 L190 200" stroke="#2d3748" stroke-width="3" fill="none" marker-end="url(#arrowhead)" transform="translate(0,10)"/>
+  <path d="M550 200 L710 200" stroke="#2d3748" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M710 200 L550 200" stroke="#2d3748" stroke-width="3" fill="none" marker-end="url(#arrowhead)" transform="translate(0,10)"/>
+  
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2d3748"/>
+    </marker>
+  </defs>
+  
+  <!-- Vertical lines from Gateway Core -->
+  <line x1="350" y1="270" x2="350" y2="320" stroke="#2d3748" stroke-width="2"/>
+  <line x1="450" y1="270" x2="450" y2="320" stroke="#2d3748" stroke-width="2"/>
+  <line x1="550" y1="270" x2="550" y2="320" stroke="#2d3748" stroke-width="2"/>
+  
+  <!-- Crypto Service -->
+  <g filter="url(#shadow)">
+    <rect x="250" y="320" width="160" height="100" rx="8" fill="url(#serviceGrad)"/>
+    <text x="330" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">CRYPTO</text>
+    <text x="330" y="375" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">SERVICE</text>
+    <text x="330" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">AES-256-GCM</text>
+  </g>
+  
+  <!-- Store & Forward -->
+  <g filter="url(#shadow)">
+    <rect x="430" y="320" width="160" height="100" rx="8" fill="url(#serviceGrad)"/>
+    <text x="510" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">STORE &</text>
+    <text x="510" y="375" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">FORWARD</text>
+    <text x="510" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Redis Queue</text>
+  </g>
+  
+  <!-- Audit Service -->
+  <g filter="url(#shadow)">
+    <rect x="610" y="320" width="160" height="100" rx="8" fill="url(#serviceGrad)"/>
+    <text x="690" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">AUDIT</text>
+    <text x="690" y="375" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">SERVICE</text>
+    <text x="690" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">NIST 800-53</text>
+  </g>
+  
+  <!-- Dashboard -->
+  <g filter="url(#shadow)">
+    <rect x="150" y="470" width="600" height="80" rx="8" fill="url(#dashGrad)"/>
+    <text x="450" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">TACTICAL OPERATIONS DASHBOARD</text>
+    <text x="450" y="530" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">Real-time Message Status • Network Health • Audit Logs • Priority Distribution</text>
+  </g>
+  
+  <!-- Vertical lines to Dashboard -->
+  <line x1="330" y1="420" x2="330" y2="470" stroke="#2d3748" stroke-width="2"/>
+  <line x1="510" y1="420" x2="510" y2="470" stroke="#2d3748" stroke-width="2"/>
+  <line x1="690" y1="420" x2="690" y2="470" stroke="#2d3748" stroke-width="2"/>
+  
+  <!-- Legend -->
+  <rect x="720" y="470" width="150" height="80" rx="5" fill="white" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="795" y="488" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#2d3748">LEGEND</text>
+  <rect x="730" y="498" width="12" height="12" fill="url(#nodeGrad)"/>
+  <text x="750" y="508" font-family="Arial, sans-serif" font-size="10" fill="#4a5568">Tactical Nodes</text>
+  <rect x="730" y="515" width="12" height="12" fill="url(#coreGrad)"/>
+  <text x="750" y="525" font-family="Arial, sans-serif" font-size="10" fill="#4a5568">Core Gateway</text>
+  <rect x="730" y="532" width="12" height="12" fill="url(#serviceGrad)"/>
+  <text x="750" y="542" font-family="Arial, sans-serif" font-size="10" fill="#4a5568">Microservices</text>
+  
+  <!-- JWT Labels -->
+  <text x="270" y="188" font-family="Arial, sans-serif" font-size="10" fill="#718096">JWT</text>
+  <text x="630" y="188" font-family="Arial, sans-serif" font-size="10" fill="#718096">JWT</text>
+  
+  <!-- Precedence Labels -->
+  <g>
+    <rect x="50" y="270" width="140" height="60" rx="5" fill="white" stroke="#e2e8f0"/>
+    <text x="120" y="287" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#2d3748">PRECEDENCE</text>
+    <text x="120" y="302" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#e53e3e">● FLASH</text>
+    <text x="120" y="314" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#dd6b20">● IMMEDIATE</text>
+    <text x="120" y="326" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#38a169">● PRIORITY / ROUTINE</text>
+  </g>
+</svg>
+

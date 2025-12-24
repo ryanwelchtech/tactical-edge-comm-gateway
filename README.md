@@ -6,7 +6,7 @@
 
 A **Zero Trust**, containerized tactical communications gateway platform designed for secure message routing in defense and mission-critical environments. This system implements military-standard message precedence levels, end-to-end encryption, store-and-forward capabilities for disconnected operations, and comprehensive audit logging aligned with **NIST 800-53** control families.
 
-![TacEdge Gateway Architecture](docs/images/architecture-diagram.png)
+![TacEdge Gateway Architecture](docs/images/architecture-diagram.svg)
 
 ---
 
