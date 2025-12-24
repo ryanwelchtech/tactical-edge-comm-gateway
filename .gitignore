@@ -74,3 +74,6 @@ trivy-*.sarif
 audit-results.json
 bandit-results.json
 
+# Personal/Social media content
+docs/LINKEDIN_POST.md
+
