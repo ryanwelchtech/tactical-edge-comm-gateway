@@ -230,15 +230,21 @@ async function extractMessagesFromAudit() {
     console.log(`[extractMessagesFromAudit] messagesClearedAt: ${state.messagesClearedAt}`);
     
     // First, filter by dashboard initialization time - only show messages created AFTER dashboard was loaded
-    // This ensures no messages from previous sessions appear
+    // This ensures no messages from previous sessions appear on first load
+    // Note: This is only used on initial load, not after clearing
     let filteredEvents = allEvents;
-    if (state.dashboardInitTime) {
+    if (state.dashboardInitTime && state.clearedMessageIds.size === 0) {
+        // Only apply init time filter if we haven't cleared messages yet
+        // Once user clears, we rely on clearedMessageIds instead
         const initTime = state.dashboardInitTime;
         filteredEvents = allEvents.filter(e => {
             const eventTime = new Date(e.timestamp).getTime();
             return eventTime > initTime; // Only include events after dashboard initialization
         });
         console.log(`[extractMessagesFromAudit] After init time filter (${new Date(initTime).toISOString()}): ${filteredEvents.length} events (removed ${allEvents.length - filteredEvents.length} old events)`);
+    } else if (state.dashboardInitTime && state.clearedMessageIds.size > 0) {
+        // After clearing, we don't use init time filter - just use cleared IDs
+        console.log(`[extractMessagesFromAudit] Skipping init time filter (messages were cleared, using ID filter instead)`);
     }
     
     // Then, filter out messages that were explicitly cleared by ID
@@ -337,15 +343,10 @@ async function extractMessagesFromAudit() {
         renderMessages();
     } else {
         console.log(`[extractMessagesFromAudit] No messages found in audit events`);
-        // If no messages from audit, clear the messages list
-        // Only load demo data if messages were never cleared
-        if (state.clearedMessageIds.size === 0 && state.messages.length === 0) {
-            loadDemoMessages();
-        } else {
-            // Messages were cleared, so keep the list empty
-            state.messages = [];
-            renderMessages();
-        }
+        // If no messages from audit, keep the list empty
+        // Don't load demo data - user wants to see real messages only
+        state.messages = [];
+        renderMessages();
     }
 }
 
@@ -815,12 +816,11 @@ function initializeMessageSender() {
             state.messages = [];
             state.allAuditEvents = [];
             
-            // Update initialization time to NOW - this prevents old messages from reappearing
-            // This is more reliable than just tracking IDs, especially with many messages
-            state.dashboardInitTime = Date.now();
-            state.clearedMessageIds = clearedMessageIds;
+            // Add cleared message IDs to the set (don't reset init time - that would filter out new messages!)
+            // Just track which specific messages were cleared
+            clearedMessageIds.forEach(id => state.clearedMessageIds.add(id));
             
-            console.log(`[clearMessages] Cleared ${clearedMessageIds.size} message(s) by ID, reset init time to ${new Date(state.dashboardInitTime).toISOString()}`);
+            console.log(`[clearMessages] Cleared ${clearedMessageIds.size} message(s) by ID. Total cleared: ${state.clearedMessageIds.size}`);
             
             // Don't persist clear timestamp - just clear the current view
             sessionStorage.removeItem('tacedge_messages_cleared_at');
