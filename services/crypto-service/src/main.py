@@ -9,7 +9,7 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -50,15 +50,15 @@ crypto_engine: CryptoEngine = None
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
     global crypto_engine
-    
+
     logger.info("Starting Crypto Service")
-    
+
     # Initialize crypto engine
     master_key = os.getenv("ENCRYPTION_KEY", "development-key-change-in-production")
     crypto_engine = CryptoEngine(master_key)
-    
+
     yield
-    
+
     logger.info("Shutting down Crypto Service")
 
 
@@ -167,30 +167,30 @@ async def metrics():
 async def encrypt_message(request: EncryptRequest):
     """
     Encrypt a message payload using AES-256-GCM.
-    
+
     Implements NIST 800-53 SC-13 (Cryptographic Protection)
     """
     start_time = time.time()
-    
+
     try:
         result = crypto_engine.encrypt(request.plaintext)
-        
+
         latency = time.time() - start_time
         CRYPTO_LATENCY.labels(operation="encrypt").observe(latency)
         ENCRYPT_TOTAL.labels(status="success").inc()
-        
+
         logger.info(
             "Message encrypted",
             classification=request.classification,
             latency_ms=int(latency * 1000)
         )
-        
+
         return EncryptResponse(
             ciphertext=result["ciphertext"],
             nonce=result["nonce"],
             tag=result["tag"]
         )
-        
+
     except Exception as e:
         ENCRYPT_TOTAL.labels(status="error").inc()
         logger.error("Encryption failed", error=str(e))
@@ -201,34 +201,34 @@ async def encrypt_message(request: EncryptRequest):
 async def decrypt_message(request: DecryptRequest):
     """
     Decrypt a previously encrypted message.
-    
+
     Implements NIST 800-53 SC-13 (Cryptographic Protection)
     """
     start_time = time.time()
-    
+
     try:
         plaintext = crypto_engine.decrypt(
             ciphertext=request.ciphertext,
             nonce=request.nonce,
             tag=request.tag
         )
-        
+
         latency = time.time() - start_time
         CRYPTO_LATENCY.labels(operation="decrypt").observe(latency)
         DECRYPT_TOTAL.labels(status="success").inc()
-        
+
         logger.info("Message decrypted", latency_ms=int(latency * 1000))
-        
+
         return DecryptResponse(
             plaintext=plaintext,
             verified=True
         )
-        
+
     except ValueError as e:
         DECRYPT_TOTAL.labels(status="verification_failed").inc()
         logger.warning("Decryption verification failed", error=str(e))
         raise HTTPException(status_code=400, detail="Message integrity verification failed")
-        
+
     except Exception as e:
         DECRYPT_TOTAL.labels(status="error").inc()
         logger.error("Decryption failed", error=str(e))
@@ -239,7 +239,7 @@ async def decrypt_message(request: DecryptRequest):
 async def verify_integrity(request: VerifyRequest):
     """
     Verify message integrity without decryption.
-    
+
     Implements NIST 800-53 SI-7 (Software, Firmware, and Information Integrity)
     """
     try:
@@ -248,12 +248,12 @@ async def verify_integrity(request: VerifyRequest):
             nonce=request.nonce,
             tag=request.tag
         )
-        
+
         return VerifyResponse(
             valid=is_valid,
             reason=None if is_valid else "Tag verification failed"
         )
-        
+
     except Exception as e:
         logger.error("Verification failed", error=str(e))
         return VerifyResponse(
@@ -266,4 +266,3 @@ async def verify_integrity(request: VerifyRequest):
 async def startup_event():
     app.state.start_time = time.time()
     logger.info("Crypto Service started")
-
