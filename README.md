@@ -184,7 +184,7 @@ docker-compose up -d
 docker-compose logs -f
 
 # Access the dashboard
-# Open http://localhost:8080 in your browser
+# Open http://localhost:8081 in your browser
 ```
 
 ### Option 2: Local Development

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Redis - Message queue backend
   redis:
@@ -120,7 +118,7 @@ services:
       dockerfile: Dockerfile
     container_name: tacedge-dashboard
     ports:
-      - "8080:80"
+      - "8081:80"
     depends_on:
       - gateway-core
     networks:
