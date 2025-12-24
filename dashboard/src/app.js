@@ -35,7 +35,8 @@ const state = {
     startTime: Date.now(),
     selectedMessage: null,
     messagesClearedAt: null,  // Timestamp when messages were last cleared (deprecated)
-    clearedMessageIds: new Set()  // IDs of messages that were cleared (better approach)
+    clearedMessageIds: new Set(),  // IDs of messages that were cleared (better approach)
+    dashboardInitTime: null  // Timestamp when dashboard was initialized - only show messages after this
 };
 
 // Initialize Dashboard
@@ -52,12 +53,13 @@ function initializeDashboard() {
     state.messages = [];
     state.allAuditEvents = [];
     
-    // Don't load old clear timestamps - just start fresh
-    // The clear button now only clears visible messages, not all future messages
+    // Set initialization time - only show messages created AFTER this time
+    // This ensures no messages from previous sessions appear
+    state.dashboardInitTime = Date.now();
     state.messagesClearedAt = null;
     state.clearedMessageIds = new Set();
     sessionStorage.removeItem('tacedge_messages_cleared_at');
-    console.log(`[initializeDashboard] Starting fresh - no message filtering`);
+    console.log(`[initializeDashboard] Starting fresh at ${new Date(state.dashboardInitTime).toISOString()} - only showing messages after this time`);
     
     renderMessages();
 
@@ -227,12 +229,23 @@ async function extractMessagesFromAudit() {
     console.log(`[extractMessagesFromAudit] Total events: ${allEvents.length}, MESSAGE_SENT events: ${messageSentEvents.length}`);
     console.log(`[extractMessagesFromAudit] messagesClearedAt: ${state.messagesClearedAt}`);
     
-    // Filter out messages that were explicitly cleared by ID
-    // This is better than filtering by timestamp - it only removes messages that were actually visible when cleared
+    // First, filter by dashboard initialization time - only show messages created AFTER dashboard was loaded
+    // This ensures no messages from previous sessions appear
     let filteredEvents = allEvents;
+    if (state.dashboardInitTime) {
+        const initTime = state.dashboardInitTime;
+        filteredEvents = allEvents.filter(e => {
+            const eventTime = new Date(e.timestamp).getTime();
+            return eventTime > initTime; // Only include events after dashboard initialization
+        });
+        console.log(`[extractMessagesFromAudit] After init time filter (${new Date(initTime).toISOString()}): ${filteredEvents.length} events (removed ${allEvents.length - filteredEvents.length} old events)`);
+    }
+    
+    // Then, filter out messages that were explicitly cleared by ID
     if (state.clearedMessageIds && state.clearedMessageIds.size > 0) {
         console.log(`[extractMessagesFromAudit] Filtering out ${state.clearedMessageIds.size} cleared message IDs`);
-        filteredEvents = allEvents.filter(e => {
+        const beforeClearFilter = filteredEvents.length;
+        filteredEvents = filteredEvents.filter(e => {
             if (e.event_type === 'MESSAGE_SENT') {
                 let messageId = e.action?.resource || '';
                 if (messageId.startsWith('message:')) {
@@ -248,7 +261,7 @@ async function extractMessagesFromAudit() {
             }
             return true; // Keep all other events
         });
-        console.log(`[extractMessagesFromAudit] After ID filter: ${filteredEvents.length} events (removed ${allEvents.length - filteredEvents.length})`);
+        console.log(`[extractMessagesFromAudit] After ID filter: ${filteredEvents.length} events (removed ${beforeClearFilter - filteredEvents.length})`);
     }
     
     // Filter for MESSAGE_SENT events
@@ -802,11 +815,12 @@ function initializeMessageSender() {
             state.messages = [];
             state.allAuditEvents = [];
             
-            // Only filter out the messages that were actually visible when cleared
-            // Don't set a timestamp that filters ALL future messages
+            // Update initialization time to NOW - this prevents old messages from reappearing
+            // This is more reliable than just tracking IDs, especially with many messages
+            state.dashboardInitTime = Date.now();
             state.clearedMessageIds = clearedMessageIds;
             
-            console.log(`[clearMessages] Cleared ${clearedMessageIds.size} message(s) by ID`);
+            console.log(`[clearMessages] Cleared ${clearedMessageIds.size} message(s) by ID, reset init time to ${new Date(state.dashboardInitTime).toISOString()}`);
             
             // Don't persist clear timestamp - just clear the current view
             sessionStorage.removeItem('tacedge_messages_cleared_at');
