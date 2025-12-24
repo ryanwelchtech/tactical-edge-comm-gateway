@@ -237,11 +237,15 @@ async function extractMessagesFromAudit() {
     
     // First, filter by dashboard initialization time - only show messages created AFTER dashboard was loaded
     // This ensures no messages from previous sessions appear on first load
-    // Note: Add a 2-second buffer to account for timing differences between services
+    // Note: Disable init time filter after 10 seconds to ensure new messages always appear
     let filteredEvents = allEvents;
-    if (state.dashboardInitTime && state.clearedMessageIds.size === 0) {
-        // Only apply init time filter if we haven't cleared messages yet
-        // Once user clears, we rely on clearedMessageIds instead
+    const now = Date.now();
+    const timeSinceInit = state.dashboardInitTime ? (now - state.dashboardInitTime) : 0;
+    
+    if (state.dashboardInitTime && state.clearedMessageIds.size === 0 && timeSinceInit < 10000) {
+        // Only apply init time filter if:
+        // 1. We haven't cleared messages yet
+        // 2. Less than 10 seconds have passed since init (prevents filtering out new messages)
         const initTime = state.dashboardInitTime;
         const bufferTime = initTime - (2 * 1000); // 2 seconds before init time to account for clock skew
         filteredEvents = allEvents.filter(e => {
@@ -257,10 +261,13 @@ async function extractMessagesFromAudit() {
             }
             return isAfterInit;
         });
-        console.log(`[extractMessagesFromAudit] After init time filter (${new Date(initTime).toISOString()}): ${filteredEvents.length} events (removed ${allEvents.length - filteredEvents.length} old events)`);
+        console.log(`[extractMessagesFromAudit] After init time filter (${new Date(initTime).toISOString()}, ${Math.round(timeSinceInit/1000)}s ago): ${filteredEvents.length} events (removed ${allEvents.length - filteredEvents.length} old events)`);
     } else if (state.dashboardInitTime && state.clearedMessageIds.size > 0) {
         // After clearing, we don't use init time filter - just use cleared IDs
         console.log(`[extractMessagesFromAudit] Skipping init time filter (messages were cleared, using ID filter instead)`);
+    } else if (state.dashboardInitTime && timeSinceInit >= 10000) {
+        // After 10 seconds, disable init time filter to ensure new messages always appear
+        console.log(`[extractMessagesFromAudit] Skipping init time filter (${Math.round(timeSinceInit/1000)}s since init, allowing all messages)`);
     }
     
     // Then, filter out messages that were explicitly cleared by ID
