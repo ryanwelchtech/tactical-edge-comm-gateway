@@ -79,6 +79,10 @@ docs/LINKEDIN_POST.md
 docs/RESUME_BULLETS.md
 docs/DEPLOYMENT.md
 
+# Demo GIFs (large files, keep local)
+docs/images/dashboard-demo.gif
+docs/images/api-demo.gif
+
 # Local scripts (contain secrets or not documented)
 scripts/send-message.ps1
 scripts/send-batch-messages.ps1

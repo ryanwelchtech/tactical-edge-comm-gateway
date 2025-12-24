@@ -5,8 +5,12 @@
 The Tactical Operations Dashboard provides a real-time interface for monitoring and managing the TacEdge Gateway communications platform. The dashboard displays network node status, message queues, system metrics, and allows you to send messages directly from the web interface.
 
 **📹 Demo Videos:**
-- **[Dashboard Demo](images/dashboard-demo.gif)** - Full dashboard walkthrough
-- **[API Demo](images/api-demo.gif)** - Sending messages via REST API
+
+![Dashboard Demo](images/dashboard-demo.gif)
+*Full dashboard walkthrough - Real-time message routing, priority-based queuing, and comprehensive audit logging*
+
+![API Demo](images/api-demo.gif)
+*Sending messages via REST API with JWT authentication*
 
 ## Accessing the Dashboard
 

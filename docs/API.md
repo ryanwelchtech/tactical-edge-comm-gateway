@@ -5,8 +5,12 @@
 The Tactical Edge Communications Gateway exposes RESTful APIs for message routing, encryption, audit, and queue management. All endpoints require JWT authentication unless otherwise noted.
 
 **📹 Demo Videos:**
-- **[Dashboard Demo](../images/dashboard-demo.gif)** - Full dashboard walkthrough
-- **[API Demo](../images/api-demo.gif)** - Sending messages via REST API
+
+![Dashboard Demo](../images/dashboard-demo.gif)
+*Full dashboard walkthrough - Real-time message routing, priority-based queuing, and comprehensive audit logging*
+
+![API Demo](../images/api-demo.gif)
+*Sending messages via REST API with JWT authentication*
 
 ---
 
