@@ -78,7 +78,7 @@ def verify_jwt(authorization: str = Header(None)) -> JWTClaims:
             token,
             JWT_SECRET,
             algorithms=[JWT_ALGORITHM],
-            options={"require_exp": True, "require_sub": True}
+            options={"require_exp": True, "require_sub": True, "verify_aud": False}
         )
 
         # Extract claims
