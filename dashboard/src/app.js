@@ -33,7 +33,8 @@ const state = {
     allAuditEvents: [],
     totalMessagesSent: 0,
     startTime: Date.now(),
-    selectedMessage: null
+    selectedMessage: null,
+    messagesClearedAt: null  // Timestamp when messages were last cleared
 };
 
 // Initialize Dashboard
@@ -200,8 +201,17 @@ async function fetchMessageContent(messageId) {
 async function extractMessagesFromAudit() {
     // Extract ALL MESSAGE_SENT events from audit (not just first 5)
     const allEvents = state.allAuditEvents || [];
+    
+    // Filter out messages that were created before messages were cleared
+    const filteredEvents = state.messagesClearedAt 
+        ? allEvents.filter(e => {
+            const eventTime = new Date(e.timestamp).getTime();
+            return eventTime > state.messagesClearedAt;
+        })
+        : allEvents;
+    
     const messageEvents = await Promise.all(
-        allEvents
+        filteredEvents
             .filter(e => e.event_type === 'MESSAGE_SENT')
             .map(async e => {
                 // Extract message ID - handle both "message:msg-xxx" and "msg-xxx" formats
@@ -712,7 +722,7 @@ function initializeMessageSender() {
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
             state.messages = [];
-            state.allAuditEvents = [];
+            state.messagesClearedAt = Date.now();  // Track when messages were cleared
             renderMessages();
         });
     }
