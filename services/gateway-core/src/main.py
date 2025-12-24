@@ -388,16 +388,16 @@ async def generate_token(
     Each request generates a unique token with a unique session ID.
     """
     import secrets
-    
+
     # Generate unique session ID
     session_id = f"session-{secrets.token_hex(8)}"
     node = node_id or f"DASHBOARD-{session_id[:8].upper()}"
-    
+
     now = datetime.now(timezone.utc)
     expiry = now + timedelta(hours=24)
-    
+
     permissions = ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["operator"])
-    
+
     payload = {
         "iss": "tacedge-gateway",
         "sub": node,
@@ -412,16 +412,16 @@ async def generate_token(
         "classification_level": classification,
         "session_id": session_id
     }
-    
+
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    
+
     logger.info(
         "Token generated",
         node_id=node,
         role=role,
         session_id=session_id
     )
-    
+
     return {
         "token": token,
         "node_id": node,

@@ -51,6 +51,7 @@ body {
     color: var(--text-primary);
     min-height: 100vh;
     overflow-x: hidden;
+    overflow-y: auto;
 }
 
 /* Background Pattern */
@@ -75,6 +76,7 @@ body::before {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    overflow-y: auto;
 }
 
 /* ============================================
@@ -190,10 +192,10 @@ body::before {
     flex: 1;
     display: grid;
     grid-template-columns: 280px 1fr 320px 320px;
-    gap: 16px;
-    padding: 16px;
-    max-height: calc(100vh - var(--header-height) - var(--footer-height));
-    overflow: hidden;
+    gap: 8px;
+    padding: 12px;
+    align-items: start;
+    overflow-x: hidden;
 }
 
 /* ============================================
@@ -205,10 +207,11 @@ body::before {
     border: 1px solid var(--border-primary);
     border-radius: 12px;
     padding: 16px;
-    overflow-y: auto;
+    overflow-y: visible;
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    min-height: fit-content;
+    height: fit-content;
 }
 
 .panel-title {
@@ -932,8 +935,8 @@ body::before {
 @media (min-width: 1600px) {
     .main-content {
         grid-template-columns: 280px 1fr 320px 320px;
-        gap: 16px;
-        padding: 16px;
+        gap: 8px;
+        padding: 12px;
     }
 }
 
@@ -941,8 +944,8 @@ body::before {
 @media (max-width: 1599px) and (min-width: 1200px) {
     .main-content {
         grid-template-columns: 260px 1fr 300px;
-        gap: 14px;
-        padding: 14px;
+        gap: 8px;
+        padding: 12px;
     }
 
     .sender-panel {
@@ -955,9 +958,8 @@ body::before {
 @media (max-width: 1199px) and (min-width: 768px) {
     .main-content {
         grid-template-columns: 1fr 1fr;
-        gap: 12px;
+        gap: 8px;
         padding: 12px;
-        max-height: none;
         overflow-y: auto;
     }
 
@@ -978,7 +980,7 @@ body::before {
     }
 
     .panel {
-        max-height: none;
+        height: fit-content;
     }
 
     .header {
@@ -994,14 +996,13 @@ body::before {
 @media (max-width: 767px) {
     .main-content {
         grid-template-columns: 1fr;
-        gap: 12px;
+        gap: 8px;
         padding: 12px;
-        max-height: none;
         overflow-y: auto;
     }
 
     .panel {
-        max-height: none;
+        height: fit-content;
         padding: 12px;
     }
 
@@ -1094,6 +1095,39 @@ body::before {
     .metric-card {
         padding: 10px;
     }
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+
+.footer {
+    height: var(--footer-height);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    flex-shrink: 0;
+}
+
+.footer-left,
+.footer-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.classification {
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+}
+
+.separator {
+    color: var(--text-muted);
 }
 
 /* Ensure consistent spacing - no weird gaps */
