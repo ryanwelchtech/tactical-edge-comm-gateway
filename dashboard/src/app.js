@@ -52,21 +52,22 @@ function initializeDashboard() {
     state.allAuditEvents = [];
     
     // Load messagesClearedAt from sessionStorage to persist across reloads
-    // But reset if it's older than 1 hour (probably from a previous session)
+    // But reset if it's older than 5 minutes (probably from a previous session or old clear)
     const storedClearedAt = sessionStorage.getItem('tacedge_messages_cleared_at');
     if (storedClearedAt) {
         const clearedAt = parseInt(storedClearedAt, 10);
-        const oneHourAgo = Date.now() - (60 * 60 * 1000);
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
         
-        // Only use the stored timestamp if it's recent (within last hour)
-        if (clearedAt > oneHourAgo) {
+        // Only use the stored timestamp if it's very recent (within last 5 minutes)
+        // This ensures we don't filter out new messages from old clear actions
+        if (clearedAt > fiveMinutesAgo) {
             state.messagesClearedAt = clearedAt;
             console.log(`[initializeDashboard] Loaded messagesClearedAt from storage: ${new Date(state.messagesClearedAt).toISOString()}`);
         } else {
             // Clear old timestamp
             state.messagesClearedAt = null;
             sessionStorage.removeItem('tacedge_messages_cleared_at');
-            console.log(`[initializeDashboard] Cleared old messagesClearedAt (older than 1 hour)`);
+            console.log(`[initializeDashboard] Cleared old messagesClearedAt (older than 5 minutes)`);
         }
     } else {
         state.messagesClearedAt = null;
@@ -246,19 +247,30 @@ async function extractMessagesFromAudit() {
     let filteredEvents = allEvents;
     if (state.messagesClearedAt) {
         const clearTime = state.messagesClearedAt;
-        filteredEvents = allEvents.filter(e => {
-            const eventTime = new Date(e.timestamp).getTime();
-            const isAfterClear = eventTime > (clearTime + 100);
-            if (!isAfterClear && e.event_type === 'MESSAGE_SENT') {
-                console.log(`[extractMessagesFromAudit] Filtered out message (before clear):`, {
-                    eventTime: new Date(eventTime).toISOString(),
-                    clearTime: new Date(clearTime).toISOString(),
-                    messageId: e.action?.resource
-                });
-            }
-            return isAfterClear;
-        });
-        console.log(`[extractMessagesFromAudit] After clear filter: ${filteredEvents.length} events`);
+        const now = Date.now();
+        
+        // If clearTime is more than 5 minutes old, ignore it (probably from a previous session)
+        // This prevents old clear timestamps from filtering out new messages
+        if (now - clearTime > 5 * 60 * 1000) {
+            console.log(`[extractMessagesFromAudit] Clear timestamp is too old (${Math.round((now - clearTime) / 1000)}s ago), ignoring it`);
+            state.messagesClearedAt = null;
+            sessionStorage.removeItem('tacedge_messages_cleared_at');
+            filteredEvents = allEvents;
+        } else {
+            filteredEvents = allEvents.filter(e => {
+                const eventTime = new Date(e.timestamp).getTime();
+                const isAfterClear = eventTime > (clearTime + 100);
+                if (!isAfterClear && e.event_type === 'MESSAGE_SENT') {
+                    console.log(`[extractMessagesFromAudit] Filtered out message (before clear):`, {
+                        eventTime: new Date(eventTime).toISOString(),
+                        clearTime: new Date(clearTime).toISOString(),
+                        messageId: e.action?.resource
+                    });
+                }
+                return isAfterClear;
+            });
+            console.log(`[extractMessagesFromAudit] After clear filter: ${filteredEvents.length} events`);
+        }
     }
     
     // Filter for MESSAGE_SENT events
