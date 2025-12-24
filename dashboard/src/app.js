@@ -4,10 +4,18 @@
  */
 
 // Configuration
-    const CONFIG = {
-    gatewayUrl: 'http://localhost:5000',
-    storeForwardUrl: 'http://localhost:5003',
-    auditUrl: 'http://localhost:5002',
+// For production deployment, update these URLs to point to your deployed backend services
+// Example: 'https://your-api-domain.com' or 'https://your-service.railway.app'
+const CONFIG = {
+    gatewayUrl: window.location.hostname === 'ryanwelchtech.github.io' 
+        ? 'https://your-deployed-gateway-url.com'  // Update with your deployed backend URL
+        : 'http://localhost:5000',  // Local development
+    storeForwardUrl: window.location.hostname === 'ryanwelchtech.github.io'
+        ? 'https://your-deployed-gateway-url.com'  // Store-forward uses gateway proxy
+        : 'http://localhost:5003',
+    auditUrl: window.location.hostname === 'ryanwelchtech.github.io'
+        ? 'https://your-deployed-gateway-url.com'  // Audit uses gateway proxy
+        : 'http://localhost:5002',
     refreshInterval: 2000, // Refresh every 2 seconds for more real-time updates
     animationDuration: 500
 };

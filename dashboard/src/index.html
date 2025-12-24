@@ -33,25 +33,66 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Left Panel - Network Status -->
-            <section class="panel network-panel">
+            <!-- Left Column - Network Nodes (top) and System Metrics (bottom) -->
+            <div class="left-column">
+                <section class="panel network-panel">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="3"/>
+                            <line x1="12" y1="2" x2="12" y2="6"/>
+                            <line x1="12" y1="18" x2="12" y2="22"/>
+                            <line x1="2" y1="12" x2="6" y2="12"/>
+                            <line x1="18" y1="12" x2="22" y2="12"/>
+                        </svg>
+                        Network Nodes
+                    </h2>
+                    <div class="node-grid" id="nodeGrid">
+                        <!-- Nodes populated by JS -->
+                    </div>
+                </section>
+
+                <section class="panel metrics-panel">
                 <h2 class="panel-title">
                     <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <circle cx="12" cy="12" r="3"/>
-                        <line x1="12" y1="2" x2="12" y2="6"/>
-                        <line x1="12" y1="18" x2="12" y2="22"/>
-                        <line x1="2" y1="12" x2="6" y2="12"/>
-                        <line x1="18" y1="12" x2="22" y2="12"/>
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                     </svg>
-                    Network Nodes
+                    System Metrics
                 </h2>
-                <div class="node-grid" id="nodeGrid">
-                    <!-- Nodes populated by JS -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Messages/sec</div>
+                        <div class="metric-value" id="messagesPerSec">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Avg Latency</div>
+                        <div class="metric-value" id="avgLatency">0ms</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Uptime</div>
+                        <div class="metric-value" id="uptime">0h 0m</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Auth Failures</div>
+                        <div class="metric-value" id="authFailures">0</div>
+                    </div>
                 </div>
-            </section>
 
-            <!-- Center Panel - Message Queue -->
+                <!-- Service Health -->
+                <h3 class="subsection-title">Service Health</h3>
+                <div class="service-health" id="serviceHealth">
+                    <!-- Services populated by JS -->
+                </div>
+
+                <!-- Audit Events -->
+                <h3 class="subsection-title">Recent Audit Events</h3>
+                <div class="audit-list" id="auditList">
+                    <!-- Audit events populated by JS -->
+                </div>
+                </section>
+            </div>
+
+            <!-- Center Panel - Message Queue (main panel) -->
             <section class="panel queue-panel">
                 <h2 class="panel-title">
                     <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -100,47 +141,7 @@
                 </div>
             </section>
 
-            <!-- System Metrics Panel (moved next to Message Queue) -->
-            <section class="panel metrics-panel">
-                <h2 class="panel-title">
-                    <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                    </svg>
-                    System Metrics
-                </h2>
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="metric-label">Messages/sec</div>
-                        <div class="metric-value" id="messagesPerSec">0</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">Avg Latency</div>
-                        <div class="metric-value" id="avgLatency">0ms</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">Uptime</div>
-                        <div class="metric-value" id="uptime">0h 0m</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">Auth Failures</div>
-                        <div class="metric-value" id="authFailures">0</div>
-                    </div>
-                </div>
-
-                <!-- Service Health -->
-                <h3 class="subsection-title">Service Health</h3>
-                <div class="service-health" id="serviceHealth">
-                    <!-- Services populated by JS -->
-                </div>
-
-                <!-- Audit Events -->
-                <h3 class="subsection-title">Recent Audit Events</h3>
-                <div class="audit-list" id="auditList">
-                    <!-- Audit events populated by JS -->
-                </div>
-            </section>
-
-            <!-- Message Sender Panel -->
+            <!-- Right Panel - Send Message -->
             <section class="panel sender-panel">
                 <h2 class="panel-title">
                     <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

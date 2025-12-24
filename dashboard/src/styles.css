@@ -202,11 +202,19 @@ body::before {
     grid-template-columns: 280px 1fr 320px;
     gap: 0;
     padding: 0;
-    align-items: start;
+    align-items: stretch;
     width: 100%;
     overflow-x: auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    height: calc(100vh - var(--header-height) - var(--footer-height));
+}
+
+.left-column {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* ============================================
@@ -216,28 +224,49 @@ body::before {
 .panel {
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-primary);
-    border-bottom: 1px solid var(--border-primary);
     border-radius: 0;
     padding: 12px;
     overflow-y: auto;
     overflow-x: hidden;
     display: flex;
     flex-direction: column;
-    min-height: fit-content;
     -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
 }
 
 .panel:last-child {
     border-right: none;
 }
 
-.queue-panel {
+.left-column .panel {
+    border-right: 1px solid var(--border-primary);
     border-bottom: 1px solid var(--border-primary);
+    flex: 1;
+    min-height: 0;
+}
+
+.left-column .panel:last-child {
+    border-bottom: none;
+}
+
+.network-panel {
+    flex: 0 0 auto;
+    min-height: fit-content;
 }
 
 .metrics-panel {
-    border-top: none;
-    border-bottom: 1px solid var(--border-primary);
+    flex: 1;
+    min-height: 0;
+}
+
+.queue-panel {
+    border-right: 1px solid var(--border-primary);
+    height: 100%;
+}
+
+.sender-panel {
+    height: 100%;
 }
 
 .panel-title {
@@ -963,6 +992,7 @@ body::before {
         grid-template-columns: 280px 1fr 320px;
         gap: 0;
         padding: 0;
+        height: calc(100vh - var(--header-height) - var(--footer-height));
     }
 }
 
@@ -972,6 +1002,7 @@ body::before {
         grid-template-columns: 260px 1fr 300px;
         gap: 0;
         padding: 0;
+        height: calc(100vh - var(--header-height) - var(--footer-height));
     }
 }
 
@@ -983,21 +1014,16 @@ body::before {
         padding: 0;
         overflow-y: auto;
         overflow-x: hidden;
+        height: auto;
     }
 
-    .network-panel {
+    .left-column {
         grid-column: 1;
         border-right: 1px solid var(--border-primary);
     }
 
     .queue-panel {
         grid-column: 2;
-        border-right: none;
-    }
-
-    .metrics-panel {
-        grid-column: 2;
-        border-top: none;
         border-right: none;
     }
 
@@ -1010,6 +1036,10 @@ body::before {
     .panel {
         min-height: auto;
         height: auto;
+    }
+
+    .left-column .panel {
+        border-right: none;
     }
 
     .header {
@@ -1031,6 +1061,11 @@ body::before {
         overflow-y: auto;
         width: 100%;
         display: grid;
+        height: auto;
+    }
+
+    .left-column {
+        display: contents;
     }
 
     .panel {
@@ -1052,13 +1087,8 @@ body::before {
         border-bottom: none;
     }
 
-    .queue-panel {
-        border-bottom: 1px solid var(--border-primary);
-    }
-
-    .metrics-panel {
-        border-top: none;
-        border-bottom: 1px solid var(--border-primary);
+    .left-column .panel {
+        border-right: none;
     }
 
     .header {

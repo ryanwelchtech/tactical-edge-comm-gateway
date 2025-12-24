@@ -10,6 +10,8 @@ A **Zero Trust**, containerized tactical communications gateway platform designe
 
 **[🌐 Live Dashboard](https://ryanwelchtech.github.io/tactical-edge-comm-gateway/)** - Interactive tactical operations dashboard (GitHub Pages)
 
+**[🚀 Deployment Guide](docs/DEPLOYMENT.md)** - Step-by-step guide for deploying backend services (Railway, Render, Fly.io, VPS, Kubernetes)
+
 ---
 
 ## 🎯 Mission Statement
