@@ -40,13 +40,17 @@ flowchart TB
     classDef coreStyle fill:#4299e1,stroke:#2b6cb0,color:white,stroke-width:2px
     classDef serviceStyle fill:#ed8936,stroke:#c05621,color:white,stroke-width:2px
     classDef dashStyle fill:#9f7aea,stroke:#6b46c1,color:white,stroke-width:2px
-    classDef boundaryStyle fill:#f7fafc,stroke:#2d3748,stroke-width:2px,stroke-dasharray:5
 
     class NA,NB nodeStyle
     class GW coreStyle
     class CRYPTO,SF,AUDIT serviceStyle
     class DB dashStyle
-    class ZT boundaryStyle
+
+    style ZT fill:#1a1a2e,stroke:#4a5568,stroke-width:2px,color:#e2e8f0
+    style NODES fill:#2d3748,stroke:#4a5568,color:#e2e8f0
+    style CORE fill:#2d3748,stroke:#4a5568,color:#e2e8f0
+    style SERVICES fill:#2d3748,stroke:#4a5568,color:#e2e8f0
+    style DASH fill:#2d3748,stroke:#4a5568,color:#e2e8f0
 ```
 
 ## Message Precedence Levels

@@ -6,7 +6,9 @@
 // Configuration
 const CONFIG = {
     gatewayUrl: 'http://localhost:5000',
-    refreshInterval: 5000,
+    storeForwardUrl: 'http://localhost:5003',
+    auditUrl: 'http://localhost:5002',
+    refreshInterval: 3000,
     animationDuration: 500
 };
 
@@ -27,7 +29,9 @@ const state = {
         authFailures: 0
     },
     services: [],
-    auditEvents: []
+    auditEvents: [],
+    totalMessagesSent: 0,
+    lastMessageTime: null
 };
 
 // Initialize Dashboard
@@ -39,9 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeDashboard() {
-    // Load initial demo data
-    loadDemoData();
-    
+    // Load initial data from APIs
+    fetchAllData();
+
     // Render all components
     renderNodes();
     renderQueueStats();
@@ -51,61 +55,127 @@ function initializeDashboard() {
     renderAuditEvents();
 }
 
-function loadDemoData() {
-    // Demo nodes
+async function fetchAllData() {
+    await Promise.all([
+        fetchNodes(),
+        fetchQueueStatus(),
+        fetchServiceHealth(),
+        fetchAuditEvents()
+    ]);
+}
+
+async function fetchNodes() {
+    try {
+        const res = await fetch(`${CONFIG.gatewayUrl}/api/v1/nodes`, {
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            state.nodes = data.nodes || [];
+            renderNodes();
+        }
+    } catch (error) {
+        console.log('Nodes API not available, using demo data');
+        loadDemoNodes();
+    }
+}
+
+async function fetchQueueStatus() {
+    try {
+        const res = await fetch(`${CONFIG.storeForwardUrl}/api/v1/queue/status`);
+        if (res.ok) {
+            const data = await res.json();
+            state.queueStatus = {
+                FLASH: data.queues?.FLASH?.depth || 0,
+                IMMEDIATE: data.queues?.IMMEDIATE?.depth || 0,
+                PRIORITY: data.queues?.PRIORITY?.depth || 0,
+                ROUTINE: data.queues?.ROUTINE?.depth || 0
+            };
+            state.totalMessagesSent = data.total_messages || state.totalMessagesSent;
+            renderQueueStats();
+        }
+    } catch (error) {
+        console.log('Queue API not available');
+    }
+}
+
+async function fetchServiceHealth() {
+    const services = [
+        { name: 'gateway-core', url: `${CONFIG.gatewayUrl}/health` },
+        { name: 'crypto-service', url: 'http://localhost:5001/health' },
+        { name: 'audit-service', url: `${CONFIG.auditUrl}/health` },
+        { name: 'store-forward', url: `${CONFIG.storeForwardUrl}/health` }
+    ];
+
+    const healthChecks = await Promise.all(
+        services.map(async (service) => {
+            try {
+                const res = await fetch(service.url, { method: 'GET' });
+                return {
+                    name: service.name,
+                    status: res.ok ? 'healthy' : 'unhealthy'
+                };
+            } catch {
+                return {
+                    name: service.name,
+                    status: 'unavailable'
+                };
+            }
+        })
+    );
+
+    state.services = healthChecks;
+    renderServiceHealth();
+}
+
+async function fetchAuditEvents() {
+    try {
+        const res = await fetch(`${CONFIG.auditUrl}/api/v1/audit/events?limit=10`);
+        if (res.ok) {
+            const data = await res.json();
+            state.auditEvents = (data.events || []).slice(0, 5).map(event => ({
+                control: event.control_family || 'AU',
+                event: `${event.event_type} - ${event.action?.operation || 'N/A'}`,
+                time: formatTime(event.timestamp)
+            }));
+            renderAuditEvents();
+        }
+    } catch (error) {
+        console.log('Audit API not available, using demo data');
+        loadDemoAuditEvents();
+    }
+}
+
+function loadDemoNodes() {
     state.nodes = [
         { node_id: 'NODE-ALPHA', status: 'CONNECTED', last_seen: new Date().toISOString(), ip_address: '10.0.1.50' },
         { node_id: 'NODE-BRAVO', status: 'CONNECTED', last_seen: new Date().toISOString(), ip_address: '10.0.1.51' },
         { node_id: 'NODE-CHARLIE', status: 'DISCONNECTED', last_seen: '2024-12-23T18:15:00Z', ip_address: '10.0.1.52' },
         { node_id: 'NODE-DELTA', status: 'CONNECTED', last_seen: new Date().toISOString(), ip_address: '10.0.1.53' }
     ];
-    
-    // Demo queue status
-    state.queueStatus = {
-        FLASH: Math.floor(Math.random() * 3),
-        IMMEDIATE: Math.floor(Math.random() * 10),
-        PRIORITY: Math.floor(Math.random() * 25),
-        ROUTINE: Math.floor(Math.random() * 100)
-    };
-    
-    // Demo messages
-    state.messages = [
-        { id: 'msg-001', precedence: 'FLASH', sender: 'NODE-ALPHA', recipient: 'NODE-BRAVO', status: 'DELIVERED', time: '18:45:32' },
-        { id: 'msg-002', precedence: 'IMMEDIATE', sender: 'NODE-BRAVO', recipient: 'NODE-DELTA', status: 'DELIVERED', time: '18:45:28' },
-        { id: 'msg-003', precedence: 'PRIORITY', sender: 'NODE-ALPHA', recipient: 'NODE-CHARLIE', status: 'QUEUED', time: '18:45:15' },
-        { id: 'msg-004', precedence: 'ROUTINE', sender: 'NODE-DELTA', recipient: 'NODE-ALPHA', status: 'DELIVERED', time: '18:44:52' },
-        { id: 'msg-005', precedence: 'IMMEDIATE', sender: 'NODE-BRAVO', recipient: 'NODE-ALPHA', status: 'DELIVERED', time: '18:44:41' }
-    ];
-    
-    // Demo metrics
-    state.metrics = {
-        messagesPerSec: Math.floor(Math.random() * 50) + 10,
-        avgLatency: Math.floor(Math.random() * 100) + 20,
-        uptime: Math.floor(Math.random() * 24),
-        authFailures: Math.floor(Math.random() * 5)
-    };
-    
-    // Demo services
-    state.services = [
-        { name: 'gateway-core', status: 'healthy' },
-        { name: 'crypto-service', status: 'healthy' },
-        { name: 'audit-service', status: 'healthy' },
-        { name: 'store-forward', status: 'healthy' },
-        { name: 'redis', status: 'healthy' }
-    ];
-    
-    // Demo audit events
+    renderNodes();
+}
+
+function loadDemoAuditEvents() {
     state.auditEvents = [
-        { control: 'AU', event: 'MESSAGE_SENT from NODE-ALPHA', time: '18:45:32' },
-        { control: 'IA', event: 'AUTH_SUCCESS for operator', time: '18:45:30' },
-        { control: 'SC', event: 'ENCRYPT completed', time: '18:45:29' },
-        { control: 'AC', event: 'RBAC_CHECK passed', time: '18:45:28' },
-        { control: 'AU', event: 'MESSAGE_DELIVERED to NODE-BRAVO', time: '18:45:27' }
+        { control: 'AU', event: 'MESSAGE_SENT from NODE-ALPHA', time: formatTime(new Date()) },
+        { control: 'IA', event: 'AUTH_SUCCESS for operator', time: formatTime(new Date()) },
+        { control: 'SC', event: 'ENCRYPT completed', time: formatTime(new Date()) },
+        { control: 'AC', event: 'RBAC_CHECK passed', time: formatTime(new Date()) },
+        { control: 'AU', event: 'MESSAGE_DELIVERED to NODE-BRAVO', time: formatTime(new Date()) }
     ];
+    renderAuditEvents();
 }
 
 function renderNodes() {
     const container = document.getElementById('nodeGrid');
+    if (!container) return;
+
+    if (state.nodes.length === 0) {
+        container.innerHTML = '<div class="no-data">No nodes available</div>';
+        return;
+    }
+
     container.innerHTML = state.nodes.map(node => `
         <div class="node-card">
             <div class="node-header">
@@ -122,23 +192,41 @@ function renderNodes() {
 
 function renderQueueStats() {
     const total = Object.values(state.queueStatus).reduce((a, b) => a + b, 0);
-    const maxQueue = 100;
-    
-    document.getElementById('flashCount').textContent = state.queueStatus.FLASH;
-    document.getElementById('immediateCount').textContent = state.queueStatus.IMMEDIATE;
-    document.getElementById('priorityCount').textContent = state.queueStatus.PRIORITY;
-    document.getElementById('routineCount').textContent = state.queueStatus.ROUTINE;
-    document.getElementById('totalQueued').textContent = total;
-    
+    const maxQueue = Math.max(100, total);
+
+    const flashCount = document.getElementById('flashCount');
+    const immediateCount = document.getElementById('immediateCount');
+    const priorityCount = document.getElementById('priorityCount');
+    const routineCount = document.getElementById('routineCount');
+    const totalQueued = document.getElementById('totalQueued');
+
+    if (flashCount) flashCount.textContent = state.queueStatus.FLASH;
+    if (immediateCount) immediateCount.textContent = state.queueStatus.IMMEDIATE;
+    if (priorityCount) priorityCount.textContent = state.queueStatus.PRIORITY;
+    if (routineCount) routineCount.textContent = state.queueStatus.ROUTINE;
+    if (totalQueued) totalQueued.textContent = total;
+
     // Update bars
-    document.getElementById('flashBar').style.width = `${(state.queueStatus.FLASH / maxQueue) * 100}%`;
-    document.getElementById('immediateBar').style.width = `${(state.queueStatus.IMMEDIATE / maxQueue) * 100}%`;
-    document.getElementById('priorityBar').style.width = `${(state.queueStatus.PRIORITY / maxQueue) * 100}%`;
-    document.getElementById('routineBar').style.width = `${(state.queueStatus.ROUTINE / maxQueue) * 100}%`;
+    const flashBar = document.getElementById('flashBar');
+    const immediateBar = document.getElementById('immediateBar');
+    const priorityBar = document.getElementById('priorityBar');
+    const routineBar = document.getElementById('routineBar');
+
+    if (flashBar) flashBar.style.width = `${(state.queueStatus.FLASH / maxQueue) * 100}%`;
+    if (immediateBar) immediateBar.style.width = `${(state.queueStatus.IMMEDIATE / maxQueue) * 100}%`;
+    if (priorityBar) priorityBar.style.width = `${(state.queueStatus.PRIORITY / maxQueue) * 100}%`;
+    if (routineBar) routineBar.style.width = `${(state.queueStatus.ROUTINE / maxQueue) * 100}%`;
 }
 
 function renderMessages() {
     const container = document.getElementById('messageList');
+    if (!container) return;
+
+    if (state.messages.length === 0) {
+        container.innerHTML = '<div class="no-data">No recent messages</div>';
+        return;
+    }
+
     container.innerHTML = state.messages.map(msg => `
         <div class="message-item">
             <span class="message-precedence ${msg.precedence.toLowerCase()}">${msg.precedence}</span>
@@ -150,14 +238,26 @@ function renderMessages() {
 }
 
 function renderMetrics() {
-    document.getElementById('messagesPerSec').textContent = state.metrics.messagesPerSec;
-    document.getElementById('avgLatency').textContent = `${state.metrics.avgLatency}ms`;
-    document.getElementById('uptime').textContent = `${state.metrics.uptime}h ${Math.floor(Math.random() * 60)}m`;
-    document.getElementById('authFailures').textContent = state.metrics.authFailures;
+    const messagesPerSec = document.getElementById('messagesPerSec');
+    const avgLatency = document.getElementById('avgLatency');
+    const uptime = document.getElementById('uptime');
+    const authFailures = document.getElementById('authFailures');
+
+    if (messagesPerSec) messagesPerSec.textContent = state.metrics.messagesPerSec;
+    if (avgLatency) avgLatency.textContent = `${state.metrics.avgLatency}ms`;
+    if (uptime) uptime.textContent = `${state.metrics.uptime}h ${Math.floor(Math.random() * 60)}m`;
+    if (authFailures) authFailures.textContent = state.metrics.authFailures;
 }
 
 function renderServiceHealth() {
     const container = document.getElementById('serviceHealth');
+    if (!container) return;
+
+    if (state.services.length === 0) {
+        container.innerHTML = '<div class="no-data">Checking services...</div>';
+        return;
+    }
+
     container.innerHTML = state.services.map(service => `
         <div class="service-item">
             <span class="service-name">${service.name}</span>
@@ -171,6 +271,13 @@ function renderServiceHealth() {
 
 function renderAuditEvents() {
     const container = document.getElementById('auditList');
+    if (!container) return;
+
+    if (state.auditEvents.length === 0) {
+        container.innerHTML = '<div class="no-data">No audit events</div>';
+        return;
+    }
+
     container.innerHTML = state.auditEvents.map(event => `
         <div class="audit-item">
             <span class="audit-control">${event.control}</span>
@@ -181,6 +288,9 @@ function renderAuditEvents() {
 }
 
 function updateDateTime() {
+    const datetimeEl = document.getElementById('datetime');
+    if (!datetimeEl) return;
+
     const now = new Date();
     const options = {
         year: 'numeric',
@@ -191,67 +301,50 @@ function updateDateTime() {
         second: '2-digit',
         hour12: false
     };
-    document.getElementById('datetime').textContent = now.toLocaleDateString('en-US', options) + ' UTC';
+    datetimeEl.textContent = now.toLocaleDateString('en-US', options) + ' UTC';
 }
 
 function formatTime(isoString) {
+    if (!isoString) return '--:--';
     const date = new Date(isoString);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 }
 
 function startDataRefresh() {
+    // Immediately fetch data
+    fetchAllData();
+
+    // Then refresh periodically
     setInterval(() => {
-        // Simulate real-time updates
-        simulateUpdates();
-        renderQueueStats();
-        renderMetrics();
+        fetchAllData();
     }, CONFIG.refreshInterval);
-}
-
-function simulateUpdates() {
-    // Simulate queue changes
-    state.queueStatus.FLASH = Math.max(0, state.queueStatus.FLASH + Math.floor(Math.random() * 3) - 1);
-    state.queueStatus.IMMEDIATE = Math.max(0, state.queueStatus.IMMEDIATE + Math.floor(Math.random() * 5) - 2);
-    state.queueStatus.PRIORITY = Math.max(0, state.queueStatus.PRIORITY + Math.floor(Math.random() * 7) - 3);
-    state.queueStatus.ROUTINE = Math.max(0, state.queueStatus.ROUTINE + Math.floor(Math.random() * 15) - 7);
-    
-    // Simulate metric changes
-    state.metrics.messagesPerSec = Math.max(0, state.metrics.messagesPerSec + Math.floor(Math.random() * 10) - 5);
-    state.metrics.avgLatency = Math.max(10, state.metrics.avgLatency + Math.floor(Math.random() * 20) - 10);
-}
-
-// Fetch real data from API (for production use)
-async function fetchData() {
-    try {
-        // Fetch nodes
-        const nodesRes = await fetch(`${CONFIG.gatewayUrl}/api/v1/nodes`, {
-            headers: { 'Authorization': `Bearer ${getToken()}` }
-        });
-        if (nodesRes.ok) {
-            const data = await nodesRes.json();
-            state.nodes = data.nodes;
-            renderNodes();
-        }
-        
-        // Fetch queue status
-        const queueRes = await fetch(`${CONFIG.gatewayUrl.replace(':5000', ':5003')}/api/v1/queue/status`);
-        if (queueRes.ok) {
-            const data = await queueRes.json();
-            state.queueStatus = {
-                FLASH: data.queues.FLASH?.depth || 0,
-                IMMEDIATE: data.queues.IMMEDIATE?.depth || 0,
-                PRIORITY: data.queues.PRIORITY?.depth || 0,
-                ROUTINE: data.queues.ROUTINE?.depth || 0
-            };
-            renderQueueStats();
-        }
-    } catch (error) {
-        console.log('Using demo data - API not available');
-    }
 }
 
 function getToken() {
     // In production, this would retrieve the JWT from storage
-    return 'demo-token';
+    // For demo, generate a simple token
+    return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYXNoYm9hcmQiLCJyb2xlIjoib3BlcmF0b3IifQ.demo';
 }
 
+// Add a message to the recent messages list (called when API sends a message)
+function addMessage(messageData) {
+    const newMessage = {
+        id: messageData.message_id,
+        precedence: messageData.precedence,
+        sender: messageData.sender || 'UNKNOWN',
+        recipient: messageData.recipient || 'UNKNOWN',
+        status: messageData.status,
+        time: formatTime(messageData.created_at || new Date().toISOString())
+    };
+
+    state.messages.unshift(newMessage);
+    if (state.messages.length > 10) {
+        state.messages.pop();
+    }
+
+    renderMessages();
+}
+
+// Expose for debugging
+window.tacedgeState = state;
+window.tacedgeRefresh = fetchAllData;
