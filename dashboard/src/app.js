@@ -52,10 +52,22 @@ function initializeDashboard() {
     state.allAuditEvents = [];
     
     // Load messagesClearedAt from sessionStorage to persist across reloads
+    // But reset if it's older than 1 hour (probably from a previous session)
     const storedClearedAt = sessionStorage.getItem('tacedge_messages_cleared_at');
     if (storedClearedAt) {
-        state.messagesClearedAt = parseInt(storedClearedAt, 10);
-        console.log(`[initializeDashboard] Loaded messagesClearedAt from storage: ${new Date(state.messagesClearedAt).toISOString()}`);
+        const clearedAt = parseInt(storedClearedAt, 10);
+        const oneHourAgo = Date.now() - (60 * 60 * 1000);
+        
+        // Only use the stored timestamp if it's recent (within last hour)
+        if (clearedAt > oneHourAgo) {
+            state.messagesClearedAt = clearedAt;
+            console.log(`[initializeDashboard] Loaded messagesClearedAt from storage: ${new Date(state.messagesClearedAt).toISOString()}`);
+        } else {
+            // Clear old timestamp
+            state.messagesClearedAt = null;
+            sessionStorage.removeItem('tacedge_messages_cleared_at');
+            console.log(`[initializeDashboard] Cleared old messagesClearedAt (older than 1 hour)`);
+        }
     } else {
         state.messagesClearedAt = null;
         console.log(`[initializeDashboard] No messagesClearedAt in storage, starting fresh`);
