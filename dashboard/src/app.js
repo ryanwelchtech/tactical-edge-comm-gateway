@@ -223,11 +223,6 @@ async function extractMessagesFromAudit() {
     // Extract ALL MESSAGE_SENT events from audit (not just first 5)
     const allEvents = state.allAuditEvents || [];
     
-    // Debug: Log total events and MESSAGE_SENT count
-    const messageSentEvents = allEvents.filter(e => e.event_type === 'MESSAGE_SENT');
-    console.log(`[extractMessagesFromAudit] Total events: ${allEvents.length}, MESSAGE_SENT events: ${messageSentEvents.length}`);
-    console.log(`[extractMessagesFromAudit] messagesClearedAt: ${state.messagesClearedAt}`);
-    
     // First, filter by dashboard initialization time - only show messages created AFTER dashboard was loaded
     // This ensures no messages from previous sessions appear
     // Always apply this filter (with buffer) to prevent old messages from appearing
