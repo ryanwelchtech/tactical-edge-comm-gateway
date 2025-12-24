@@ -1,0 +1,1 @@
+# TacEdge Gateway Core Service

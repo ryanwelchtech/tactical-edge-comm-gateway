@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TacEdge Gateway - Tactical Operations Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                    <span class="logo-text">TacEdge<span class="logo-accent">Gateway</span></span>
+                </div>
+                <span class="header-subtitle">Tactical Operations Dashboard</span>
+            </div>
+            <div class="header-right">
+                <div class="status-indicator">
+                    <span class="status-dot online"></span>
+                    <span class="status-text">OPERATIONAL</span>
+                </div>
+                <div class="datetime" id="datetime"></div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Column - Network Nodes (top) and System Metrics (bottom) -->
+            <div class="left-column">
+                <section class="panel network-panel">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="3"/>
+                            <line x1="12" y1="2" x2="12" y2="6"/>
+                            <line x1="12" y1="18" x2="12" y2="22"/>
+                            <line x1="2" y1="12" x2="6" y2="12"/>
+                            <line x1="18" y1="12" x2="22" y2="12"/>
+                        </svg>
+                        Network Nodes
+                    </h2>
+                    <div class="node-grid" id="nodeGrid">
+                        <!-- Nodes populated by JS -->
+                    </div>
+                </section>
+
+                <section class="panel metrics-panel">
+                <h2 class="panel-title">
+                    <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                    System Metrics
+                </h2>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Messages/sec</div>
+                        <div class="metric-value" id="messagesPerSec">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Avg Latency</div>
+                        <div class="metric-value" id="avgLatency">0ms</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Uptime</div>
+                        <div class="metric-value" id="uptime">0h 0m</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Auth Failures</div>
+                        <div class="metric-value" id="authFailures">0</div>
+                    </div>
+                </div>
+
+                <!-- Service Health -->
+                <h3 class="subsection-title">Service Health</h3>
+                <div class="service-health" id="serviceHealth">
+                    <!-- Services populated by JS -->
+                </div>
+
+                <!-- Audit Events -->
+                <h3 class="subsection-title">Recent Audit Events</h3>
+                <div class="audit-list" id="auditList">
+                    <!-- Audit events populated by JS -->
+                </div>
+                </section>
+            </div>
+
+            <!-- Center Panel - Message Queue (main panel) -->
+            <section class="panel queue-panel">
+                <h2 class="panel-title">
+                    <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="8" y1="6" x2="21" y2="6"/>
+                        <line x1="8" y1="12" x2="21" y2="12"/>
+                        <line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/>
+                        <line x1="3" y1="12" x2="3.01" y2="12"/>
+                        <line x1="3" y1="18" x2="3.01" y2="18"/>
+                    </svg>
+                    Message Queue Status
+                </h2>
+                <div class="queue-container">
+                    <div class="queue-stats">
+                        <div class="stat-card flash">
+                            <div class="stat-label">FLASH</div>
+                            <div class="stat-value" id="flashCount">0</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" id="flashBar"></div></div>
+                        </div>
+                        <div class="stat-card immediate">
+                            <div class="stat-label">IMMEDIATE</div>
+                            <div class="stat-value" id="immediateCount">0</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" id="immediateBar"></div></div>
+                        </div>
+                        <div class="stat-card priority">
+                            <div class="stat-label">PRIORITY</div>
+                            <div class="stat-value" id="priorityCount">0</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" id="priorityBar"></div></div>
+                        </div>
+                        <div class="stat-card routine">
+                            <div class="stat-label">ROUTINE</div>
+                            <div class="stat-value" id="routineCount">0</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" id="routineBar"></div></div>
+                        </div>
+                    </div>
+                    <div class="queue-total">
+                        <span class="total-label">Total Queued:</span>
+                        <span class="total-value" id="totalQueued">0</span>
+                    </div>
+                </div>
+
+                <!-- Recent Messages -->
+                <div class="messages-header">
+                    <h3 class="subsection-title">Recent Messages</h3>
+                    <button id="clearMessagesBtn" class="btn btn-secondary">Clear</button>
+                </div>
+                <div class="message-list" id="messageList">
+                    <!-- Messages populated by JS -->
+                </div>
+            </section>
+
+            <!-- Right Panel - Send Message -->
+            <section class="panel sender-panel">
+                <h2 class="panel-title">
+                    <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                    Send Message
+                </h2>
+                <div class="sender-form" id="senderForm">
+                    <div class="form-group">
+                        <label for="senderPrecedence">Precedence:</label>
+                        <select id="senderPrecedence" class="form-control">
+                            <option value="FLASH">FLASH</option>
+                            <option value="IMMEDIATE">IMMEDIATE</option>
+                            <option value="PRIORITY">PRIORITY</option>
+                            <option value="ROUTINE" selected>ROUTINE</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="senderClassification">Classification:</label>
+                        <select id="senderClassification" class="form-control">
+                            <option value="UNCLASSIFIED" selected>UNCLASSIFIED</option>
+                            <option value="CONFIDENTIAL">CONFIDENTIAL</option>
+                            <option value="SECRET">SECRET</option>
+                            <option value="TOP_SECRET">TOP_SECRET</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="senderNode">Sender:</label>
+                        <select id="senderNode" class="form-control">
+                            <option value="NODE-ALPHA" selected>NODE-ALPHA</option>
+                            <option value="NODE-BRAVO">NODE-BRAVO</option>
+                            <option value="NODE-CHARLIE">NODE-CHARLIE</option>
+                            <option value="NODE-DELTA">NODE-DELTA</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="recipientNode">Recipient:</label>
+                        <select id="recipientNode" class="form-control">
+                            <option value="NODE-ALPHA">NODE-ALPHA</option>
+                            <option value="NODE-BRAVO" selected>NODE-BRAVO</option>
+                            <option value="NODE-CHARLIE">NODE-CHARLIE</option>
+                            <option value="NODE-DELTA">NODE-DELTA</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="messageContent">Content:</label>
+                        <textarea id="messageContent" class="form-control" rows="3" placeholder="Enter message content..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="batchCount">Batch Count (optional):</label>
+                        <input type="number" id="batchCount" class="form-control" min="1" max="50" value="1" placeholder="1">
+                    </div>
+                    <div class="form-actions">
+                        <button id="sendMessageBtn" class="btn btn-primary">Send Message</button>
+                        <button id="sendBatchBtn" class="btn btn-secondary">Send Batch</button>
+                    </div>
+                    <div id="sendStatus" class="send-status"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-left">
+                <span class="classification">UNCLASSIFIED // FOR DEMONSTRATION ONLY</span>
+            </div>
+            <div class="footer-right">
+                <span>TacEdge Gateway v1.0.0</span>
+                <span class="separator">|</span>
+                <span>Zero Trust Architecture</span>
+                <span class="separator">|</span>
+                <span>NIST 800-53 Compliant</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Message Detail Modal -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Message Details</h2>
+                <button class="modal-close" onclick="closeMessageModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section">
+                    <div class="modal-field">
+                        <span class="modal-label">Message ID:</span>
+                        <span class="modal-value" id="modalMessageId">-</span>
+                    </div>
+                    <div class="modal-field">
+                        <span class="modal-label">Event ID:</span>
+                        <span class="modal-value" id="modalEventId">-</span>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <div class="modal-field">
+                        <span class="modal-label">Precedence:</span>
+                        <span class="modal-value" id="modalPrecedence">-</span>
+                    </div>
+                    <div class="modal-field">
+                        <span class="modal-label">Classification:</span>
+                        <span class="modal-value" id="modalClassification">-</span>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <div class="modal-field">
+                        <span class="modal-label">Sender:</span>
+                        <span class="modal-value" id="modalSender">-</span>
+                    </div>
+                    <div class="modal-field">
+                        <span class="modal-label">Recipient:</span>
+                        <span class="modal-value" id="modalRecipient">-</span>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <div class="modal-field">
+                        <span class="modal-label">Status:</span>
+                        <span class="modal-value" id="modalStatus">-</span>
+                    </div>
+                    <div class="modal-field">
+                        <span class="modal-label">Time:</span>
+                        <span class="modal-value" id="modalTime">-</span>
+                    </div>
+                </div>
+                <div class="modal-section full-width">
+                    <div class="modal-field">
+                        <span class="modal-label">Content:</span>
+                        <div class="modal-content-box" id="modalContent">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
