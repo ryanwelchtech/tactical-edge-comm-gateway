@@ -8,6 +8,8 @@ A **Zero Trust**, containerized tactical communications gateway platform designe
 
 **[📊 View Full Architecture Diagrams](docs/images/architecture-diagram.md)** - Interactive Mermaid diagrams showing system design, message flow, and NIST compliance mapping.
 
+**[🌐 Live Dashboard](https://ryanwelchtech.github.io/tactical-edge-comm-gateway/)** - Interactive tactical operations dashboard (GitHub Pages)
+
 ---
 
 ## 🎯 Mission Statement

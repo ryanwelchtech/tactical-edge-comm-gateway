@@ -100,8 +100,48 @@
                 </div>
             </section>
 
+            <!-- System Metrics Panel (moved next to Message Queue) -->
+            <section class="panel metrics-panel">
+                <h2 class="panel-title">
+                    <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                    System Metrics
+                </h2>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Messages/sec</div>
+                        <div class="metric-value" id="messagesPerSec">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Avg Latency</div>
+                        <div class="metric-value" id="avgLatency">0ms</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Uptime</div>
+                        <div class="metric-value" id="uptime">0h 0m</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Auth Failures</div>
+                        <div class="metric-value" id="authFailures">0</div>
+                    </div>
+                </div>
+
+                <!-- Service Health -->
+                <h3 class="subsection-title">Service Health</h3>
+                <div class="service-health" id="serviceHealth">
+                    <!-- Services populated by JS -->
+                </div>
+
+                <!-- Audit Events -->
+                <h3 class="subsection-title">Recent Audit Events</h3>
+                <div class="audit-list" id="auditList">
+                    <!-- Audit events populated by JS -->
+                </div>
+            </section>
+
             <!-- Message Sender Panel -->
-            <section class="panel sender-panel" style="grid-column: 4;">
+            <section class="panel sender-panel">
                 <h2 class="panel-title">
                     <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="22" y1="2" x2="11" y2="13"/>
@@ -159,46 +199,6 @@
                         <button id="sendBatchBtn" class="btn btn-secondary">Send Batch</button>
                     </div>
                     <div id="sendStatus" class="send-status"></div>
-                </div>
-            </section>
-
-            <!-- Right Panel - System Metrics -->
-            <section class="panel metrics-panel">
-                <h2 class="panel-title">
-                    <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                    </svg>
-                    System Metrics
-                </h2>
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="metric-label">Messages/sec</div>
-                        <div class="metric-value" id="messagesPerSec">0</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">Avg Latency</div>
-                        <div class="metric-value" id="avgLatency">0ms</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">Uptime</div>
-                        <div class="metric-value" id="uptime">0h 0m</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">Auth Failures</div>
-                        <div class="metric-value" id="authFailures">0</div>
-                    </div>
-                </div>
-
-                <!-- Service Health -->
-                <h3 class="subsection-title">Service Health</h3>
-                <div class="service-health" id="serviceHealth">
-                    <!-- Services populated by JS -->
-                </div>
-
-                <!-- Audit Events -->
-                <h3 class="subsection-title">Recent Audit Events</h3>
-                <div class="audit-list" id="auditList">
-                    <!-- Audit events populated by JS -->
                 </div>
             </section>
         </main>
