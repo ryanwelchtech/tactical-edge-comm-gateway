@@ -55,8 +55,10 @@ function initializeDashboard() {
     const storedClearedAt = sessionStorage.getItem('tacedge_messages_cleared_at');
     if (storedClearedAt) {
         state.messagesClearedAt = parseInt(storedClearedAt, 10);
+        console.log(`[initializeDashboard] Loaded messagesClearedAt from storage: ${new Date(state.messagesClearedAt).toISOString()}`);
     } else {
         state.messagesClearedAt = null;
+        console.log(`[initializeDashboard] No messagesClearedAt in storage, starting fresh`);
     }
     
     renderMessages();
@@ -225,21 +227,44 @@ async function extractMessagesFromAudit() {
     // Debug: Log total events and MESSAGE_SENT count
     const messageSentEvents = allEvents.filter(e => e.event_type === 'MESSAGE_SENT');
     console.log(`[extractMessagesFromAudit] Total events: ${allEvents.length}, MESSAGE_SENT events: ${messageSentEvents.length}`);
+    console.log(`[extractMessagesFromAudit] messagesClearedAt: ${state.messagesClearedAt}`);
     
     // If messages were cleared, filter out events created before the clear time
     // Add a small buffer (100ms) to account for timing differences
-    const filteredEvents = state.messagesClearedAt 
-        ? allEvents.filter(e => {
+    let filteredEvents = allEvents;
+    if (state.messagesClearedAt) {
+        const clearTime = state.messagesClearedAt;
+        filteredEvents = allEvents.filter(e => {
             const eventTime = new Date(e.timestamp).getTime();
-            const clearTime = state.messagesClearedAt;
-            // Only include events created AFTER the clear (with 100ms buffer)
-            return eventTime > (clearTime + 100);
-        })
-        : allEvents;
+            const isAfterClear = eventTime > (clearTime + 100);
+            if (!isAfterClear && e.event_type === 'MESSAGE_SENT') {
+                console.log(`[extractMessagesFromAudit] Filtered out message (before clear):`, {
+                    eventTime: new Date(eventTime).toISOString(),
+                    clearTime: new Date(clearTime).toISOString(),
+                    messageId: e.action?.resource
+                });
+            }
+            return isAfterClear;
+        });
+        console.log(`[extractMessagesFromAudit] After clear filter: ${filteredEvents.length} events`);
+    }
+    
+    // Filter for MESSAGE_SENT events
+    const messageSentFiltered = filteredEvents.filter(e => e.event_type === 'MESSAGE_SENT');
+    console.log(`[extractMessagesFromAudit] MESSAGE_SENT events after filtering: ${messageSentFiltered.length}`);
+    
+    if (messageSentFiltered.length > 0) {
+        console.log(`[extractMessagesFromAudit] Sample MESSAGE_SENT event:`, {
+            event_type: messageSentFiltered[0].event_type,
+            timestamp: messageSentFiltered[0].timestamp,
+            resource: messageSentFiltered[0].action?.resource,
+            sender: messageSentFiltered[0].actor?.node_id,
+            recipient: messageSentFiltered[0].context?.recipient
+        });
+    }
     
     const messageEvents = await Promise.all(
-        filteredEvents
-            .filter(e => e.event_type === 'MESSAGE_SENT')
+        messageSentFiltered
             .map(async e => {
                 // Extract message ID - handle both "message:msg-xxx" and "msg-xxx" formats
                 let messageId = e.action?.resource || '';
@@ -773,6 +798,8 @@ function initializeMessageSender() {
             state.messages = [];
             state.allAuditEvents = [];
             state.messagesClearedAt = Date.now();  // Track when messages were cleared
+            
+            console.log(`[clearMessages] Cleared at: ${new Date(state.messagesClearedAt).toISOString()}`);
             
             // Persist to sessionStorage so it survives page reloads
             sessionStorage.setItem('tacedge_messages_cleared_at', state.messagesClearedAt.toString());
