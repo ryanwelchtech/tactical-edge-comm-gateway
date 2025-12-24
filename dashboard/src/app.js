@@ -34,7 +34,8 @@ const state = {
     totalMessagesSent: 0,
     startTime: Date.now(),
     selectedMessage: null,
-    messagesClearedAt: null  // Timestamp when messages were last cleared
+    messagesClearedAt: null,  // Timestamp when messages were last cleared (deprecated)
+    clearedMessageIds: new Set()  // IDs of messages that were cleared (better approach)
 };
 
 // Initialize Dashboard
@@ -51,28 +52,12 @@ function initializeDashboard() {
     state.messages = [];
     state.allAuditEvents = [];
     
-    // Load messagesClearedAt from sessionStorage to persist across reloads
-    // But reset if it's older than 2 minutes (probably from a previous clear action)
-    const storedClearedAt = sessionStorage.getItem('tacedge_messages_cleared_at');
-    if (storedClearedAt) {
-        const clearedAt = parseInt(storedClearedAt, 10);
-        const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
-        
-        // Only use the stored timestamp if it's very recent (within last 2 minutes)
-        // This ensures we don't filter out new messages from old clear actions
-        if (clearedAt > twoMinutesAgo) {
-            state.messagesClearedAt = clearedAt;
-            console.log(`[initializeDashboard] Loaded messagesClearedAt from storage: ${new Date(state.messagesClearedAt).toISOString()}`);
-        } else {
-            // Clear old timestamp
-            state.messagesClearedAt = null;
-            sessionStorage.removeItem('tacedge_messages_cleared_at');
-            console.log(`[initializeDashboard] Cleared old messagesClearedAt (older than 2 minutes)`);
-        }
-    } else {
-        state.messagesClearedAt = null;
-        console.log(`[initializeDashboard] No messagesClearedAt in storage, starting fresh`);
-    }
+    // Don't load old clear timestamps - just start fresh
+    // The clear button now only clears visible messages, not all future messages
+    state.messagesClearedAt = null;
+    state.clearedMessageIds = new Set();
+    sessionStorage.removeItem('tacedge_messages_cleared_at');
+    console.log(`[initializeDashboard] Starting fresh - no message filtering`);
     
     renderMessages();
 
@@ -242,53 +227,28 @@ async function extractMessagesFromAudit() {
     console.log(`[extractMessagesFromAudit] Total events: ${allEvents.length}, MESSAGE_SENT events: ${messageSentEvents.length}`);
     console.log(`[extractMessagesFromAudit] messagesClearedAt: ${state.messagesClearedAt}`);
     
-    // If messages were cleared, filter out events created before the clear time
-    // Add a small buffer (100ms) to account for timing differences
+    // Filter out messages that were explicitly cleared by ID
+    // This is better than filtering by timestamp - it only removes messages that were actually visible when cleared
     let filteredEvents = allEvents;
-    if (state.messagesClearedAt) {
-        const clearTime = state.messagesClearedAt;
-        const now = Date.now();
-        
-        // If clearTime is more than 2 minutes old, ignore it (probably from a previous clear action)
-        // This prevents old clear timestamps from filtering out new messages
-        if (now - clearTime > 2 * 60 * 1000) {
-            console.log(`[extractMessagesFromAudit] Clear timestamp is too old (${Math.round((now - clearTime) / 1000)}s ago), ignoring it`);
-            state.messagesClearedAt = null;
-            sessionStorage.removeItem('tacedge_messages_cleared_at');
-            filteredEvents = allEvents;
-        } else {
-            // Log all MESSAGE_SENT events to see what we're working with
-            const allMessageEvents = allEvents.filter(e => e.event_type === 'MESSAGE_SENT');
-            console.log(`[extractMessagesFromAudit] Found ${allMessageEvents.length} MESSAGE_SENT events, clearTime: ${new Date(clearTime).toISOString()}`);
-            
-            if (allMessageEvents.length > 0) {
-                // Show the newest and oldest message timestamps
-                const timestamps = allMessageEvents.map(e => new Date(e.timestamp).getTime()).sort((a, b) => b - a);
-                console.log(`[extractMessagesFromAudit] Newest message: ${new Date(timestamps[0]).toISOString()}, Oldest: ${new Date(timestamps[timestamps.length - 1]).toISOString()}`);
-            }
-            
-            filteredEvents = allEvents.filter(e => {
-                const eventTime = new Date(e.timestamp).getTime();
-                const isAfterClear = eventTime > (clearTime + 100);
-                if (e.event_type === 'MESSAGE_SENT') {
-                    if (!isAfterClear) {
-                        console.log(`[extractMessagesFromAudit] Filtered out message (before clear):`, {
-                            eventTime: new Date(eventTime).toISOString(),
-                            clearTime: new Date(clearTime).toISOString(),
-                            messageId: e.action?.resource
-                        });
-                    } else {
-                        console.log(`[extractMessagesFromAudit] Keeping message (after clear):`, {
-                            eventTime: new Date(eventTime).toISOString(),
-                            clearTime: new Date(clearTime).toISOString(),
-                            messageId: e.action?.resource
-                        });
-                    }
+    if (state.clearedMessageIds && state.clearedMessageIds.size > 0) {
+        console.log(`[extractMessagesFromAudit] Filtering out ${state.clearedMessageIds.size} cleared message IDs`);
+        filteredEvents = allEvents.filter(e => {
+            if (e.event_type === 'MESSAGE_SENT') {
+                let messageId = e.action?.resource || '';
+                if (messageId.startsWith('message:')) {
+                    messageId = messageId.replace('message:', '');
                 }
-                return isAfterClear;
-            });
-            console.log(`[extractMessagesFromAudit] After clear filter: ${filteredEvents.length} events`);
-        }
+                if (!messageId || messageId === '') {
+                    messageId = `msg-${e.event_id}`;
+                }
+                
+                if (state.clearedMessageIds.has(messageId)) {
+                    return false; // Filter out this specific message
+                }
+            }
+            return true; // Keep all other events
+        });
+        console.log(`[extractMessagesFromAudit] After ID filter: ${filteredEvents.length} events (removed ${allEvents.length - filteredEvents.length})`);
     }
     
     // Filter for MESSAGE_SENT events
@@ -366,7 +326,7 @@ async function extractMessagesFromAudit() {
         console.log(`[extractMessagesFromAudit] No messages found in audit events`);
         // If no messages from audit, clear the messages list
         // Only load demo data if messages were never cleared
-        if (state.messagesClearedAt === null && state.messages.length === 0) {
+        if (state.clearedMessageIds.size === 0 && state.messages.length === 0) {
             loadDemoMessages();
         } else {
             // Messages were cleared, so keep the list empty
@@ -837,14 +797,20 @@ function initializeMessageSender() {
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
             // Clear all messages and audit events
+            // Store the IDs of messages that were visible when cleared
+            const clearedMessageIds = new Set(state.messages.map(m => m.id));
             state.messages = [];
             state.allAuditEvents = [];
-            state.messagesClearedAt = Date.now();  // Track when messages were cleared
             
-            console.log(`[clearMessages] Cleared at: ${new Date(state.messagesClearedAt).toISOString()}`);
+            // Only filter out the messages that were actually visible when cleared
+            // Don't set a timestamp that filters ALL future messages
+            state.clearedMessageIds = clearedMessageIds;
             
-            // Persist to sessionStorage so it survives page reloads
-            sessionStorage.setItem('tacedge_messages_cleared_at', state.messagesClearedAt.toString());
+            console.log(`[clearMessages] Cleared ${clearedMessageIds.size} message(s) by ID`);
+            
+            // Don't persist clear timestamp - just clear the current view
+            sessionStorage.removeItem('tacedge_messages_cleared_at');
+            state.messagesClearedAt = null;
             
             renderMessages();
         });
