@@ -156,6 +156,64 @@
         </footer>
     </div>
 
+    <!-- Message Detail Modal -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Message Details</h2>
+                <button class="modal-close" onclick="closeMessageModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section">
+                    <div class="modal-field">
+                        <span class="modal-label">Message ID:</span>
+                        <span class="modal-value" id="modalMessageId">-</span>
+                    </div>
+                    <div class="modal-field">
+                        <span class="modal-label">Event ID:</span>
+                        <span class="modal-value" id="modalEventId">-</span>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <div class="modal-field">
+                        <span class="modal-label">Precedence:</span>
+                        <span class="modal-value" id="modalPrecedence">-</span>
+                    </div>
+                    <div class="modal-field">
+                        <span class="modal-label">Classification:</span>
+                        <span class="modal-value" id="modalClassification">-</span>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <div class="modal-field">
+                        <span class="modal-label">Sender:</span>
+                        <span class="modal-value" id="modalSender">-</span>
+                    </div>
+                    <div class="modal-field">
+                        <span class="modal-label">Recipient:</span>
+                        <span class="modal-value" id="modalRecipient">-</span>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <div class="modal-field">
+                        <span class="modal-label">Status:</span>
+                        <span class="modal-value" id="modalStatus">-</span>
+                    </div>
+                    <div class="modal-field">
+                        <span class="modal-label">Time:</span>
+                        <span class="modal-value" id="modalTime">-</span>
+                    </div>
+                </div>
+                <div class="modal-section full-width">
+                    <div class="modal-field">
+                        <span class="modal-label">Content:</span>
+                        <div class="modal-content-box" id="modalContent">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

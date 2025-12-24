@@ -121,6 +121,7 @@ class MessageHandler:
             classification=classification,
             sender=sender,
             recipient=recipient,
+            content=content,
             headers=headers
         )
 
@@ -200,6 +201,7 @@ class MessageHandler:
         classification: str,
         sender: str,
         recipient: str,
+        content: str,
         headers: dict
     ) -> None:
         """Log audit event via Audit Service."""
@@ -221,7 +223,8 @@ class MessageHandler:
                     "context": {
                         "precedence": precedence,
                         "classification": classification,
-                        "recipient": recipient
+                        "recipient": recipient,
+                        "content": content
                     }
                 },
                 headers=headers,

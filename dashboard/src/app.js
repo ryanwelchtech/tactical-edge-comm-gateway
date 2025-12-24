@@ -30,8 +30,10 @@ const state = {
     },
     services: [],
     auditEvents: [],
+    allAuditEvents: [],
     totalMessagesSent: 0,
-    startTime: Date.now()
+    startTime: Date.now(),
+    selectedMessage: null
 };
 
 // Initialize Dashboard
@@ -138,7 +140,7 @@ async function fetchServiceHealth() {
 
 async function fetchAuditEvents() {
     try {
-        const res = await fetch(`${CONFIG.auditUrl}/api/v1/audit/events?limit=20`);
+        const res = await fetch(`${CONFIG.auditUrl}/api/v1/audit/events?limit=50`);
         if (res.ok) {
             const data = await res.json();
             const events = data.events || [];
@@ -151,6 +153,9 @@ async function fetchAuditEvents() {
             }));
             renderAuditEvents();
 
+            // Store all events for message extraction
+            state.allAuditEvents = events;
+
             // Update metrics based on audit events
             updateMetricsFromAudit(events);
         }
@@ -161,35 +166,42 @@ async function fetchAuditEvents() {
 }
 
 function extractMessagesFromAudit() {
-    // Extract MESSAGE_SENT events from audit and display them
-    const messageEvents = state.auditEvents
-        .filter(e => e.raw && e.raw.event_type === 'MESSAGE_SENT')
+    // Extract ALL MESSAGE_SENT events from audit (not just first 5)
+    const allEvents = state.allAuditEvents || [];
+    const messageEvents = allEvents
+        .filter(e => e.event_type === 'MESSAGE_SENT')
         .map(e => ({
-            id: e.raw.action?.resource || 'msg-unknown',
-            precedence: e.raw.context?.precedence || 'ROUTINE',
-            sender: e.raw.actor?.node_id || 'UNKNOWN',
-            recipient: e.raw.context?.recipient || 'UNKNOWN',
-            status: 'DELIVERED',
-            time: formatTime(e.raw.timestamp)
-        }));
+            id: e.action?.resource?.replace('message:', '') || `msg-${e.event_id}`,
+            precedence: e.context?.precedence || 'ROUTINE',
+            classification: e.context?.classification || 'UNCLASSIFIED',
+            sender: e.actor?.node_id || 'UNKNOWN',
+            recipient: e.context?.recipient || 'UNKNOWN',
+            content: e.context?.content || 'Message content not available in audit log',
+            status: e.action?.outcome === 'SUCCESS' ? 'DELIVERED' : 'PENDING',
+            time: formatTime(e.timestamp),
+            timestamp: e.timestamp,
+            eventId: e.event_id,
+            raw: e
+        }))
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by newest first
 
     if (messageEvents.length > 0) {
-        // Merge with existing messages, avoiding duplicates
-        const existingIds = new Set(state.messages.map(m => m.id));
+        // Replace messages with new list (avoid duplicates by ID)
+        const messageMap = new Map();
         messageEvents.forEach(msg => {
-            if (!existingIds.has(msg.id)) {
-                state.messages.unshift(msg);
+            if (!messageMap.has(msg.id)) {
+                messageMap.set(msg.id, msg);
             }
         });
 
-        // Keep only last 10 messages
-        state.messages = state.messages.slice(0, 10);
+        // Keep only last 20 messages
+        state.messages = Array.from(messageMap.values()).slice(0, 20);
         renderMessages();
-    }
-
-    // If no messages from audit, use demo data
-    if (state.messages.length === 0) {
-        loadDemoMessages();
+    } else {
+        // If no messages from audit, use demo data
+        if (state.messages.length === 0) {
+            loadDemoMessages();
+        }
     }
 }
 
@@ -229,11 +241,11 @@ function loadDemoNodes() {
 function loadDemoMessages() {
     const now = new Date();
     state.messages = [
-        { id: 'msg-001', precedence: 'FLASH', sender: 'NODE-ALPHA', recipient: 'NODE-BRAVO', status: 'DELIVERED', time: formatTime(new Date(now - 30000)) },
-        { id: 'msg-002', precedence: 'IMMEDIATE', sender: 'NODE-BRAVO', recipient: 'NODE-DELTA', status: 'DELIVERED', time: formatTime(new Date(now - 60000)) },
-        { id: 'msg-003', precedence: 'PRIORITY', sender: 'NODE-ALPHA', recipient: 'NODE-CHARLIE', status: 'DELIVERED', time: formatTime(new Date(now - 120000)) },
-        { id: 'msg-004', precedence: 'ROUTINE', sender: 'NODE-DELTA', recipient: 'NODE-ALPHA', status: 'DELIVERED', time: formatTime(new Date(now - 180000)) },
-        { id: 'msg-005', precedence: 'IMMEDIATE', sender: 'NODE-BRAVO', recipient: 'NODE-ALPHA', status: 'DELIVERED', time: formatTime(new Date(now - 240000)) }
+        { id: 'msg-001', precedence: 'FLASH', classification: 'UNCLASSIFIED', sender: 'NODE-ALPHA', recipient: 'NODE-BRAVO', content: 'URGENT: Threat detected at grid reference 12345678', status: 'DELIVERED', time: formatTime(new Date(now - 30000)), timestamp: new Date(now - 30000).toISOString(), eventId: 'evt-demo-001' },
+        { id: 'msg-002', precedence: 'IMMEDIATE', classification: 'CONFIDENTIAL', sender: 'NODE-BRAVO', recipient: 'NODE-DELTA', content: 'SITREP: All units in position', status: 'DELIVERED', time: formatTime(new Date(now - 60000)), timestamp: new Date(now - 60000).toISOString(), eventId: 'evt-demo-002' },
+        { id: 'msg-003', precedence: 'PRIORITY', classification: 'UNCLASSIFIED', sender: 'NODE-ALPHA', recipient: 'NODE-CHARLIE', content: 'Equipment status nominal, standing by', status: 'DELIVERED', time: formatTime(new Date(now - 120000)), timestamp: new Date(now - 120000).toISOString(), eventId: 'evt-demo-003' },
+        { id: 'msg-004', precedence: 'ROUTINE', classification: 'UNCLASSIFIED', sender: 'NODE-DELTA', recipient: 'NODE-ALPHA', content: 'Routine status update', status: 'DELIVERED', time: formatTime(new Date(now - 180000)), timestamp: new Date(now - 180000).toISOString(), eventId: 'evt-demo-004' },
+        { id: 'msg-005', precedence: 'IMMEDIATE', classification: 'SECRET', sender: 'NODE-BRAVO', recipient: 'NODE-ALPHA', content: 'TACTICAL UPDATE: Enemy movement detected', status: 'DELIVERED', time: formatTime(new Date(now - 240000)), timestamp: new Date(now - 240000).toISOString(), eventId: 'evt-demo-005' }
     ];
     renderMessages();
 }
@@ -311,13 +323,54 @@ function renderMessages() {
     }
 
     container.innerHTML = state.messages.map(msg => `
-        <div class="message-item">
+        <div class="message-item clickable" data-message-id="${msg.id}">
             <span class="message-precedence ${msg.precedence.toLowerCase()}">${msg.precedence}</span>
             <span class="message-route">${msg.sender} → ${msg.recipient}</span>
             <span class="message-time">${msg.time}</span>
             <span class="message-status ${msg.status.toLowerCase()}">${msg.status}</span>
         </div>
     `).join('');
+
+    // Add click handlers
+    container.querySelectorAll('.message-item.clickable').forEach(item => {
+        item.addEventListener('click', () => {
+            const messageId = item.getAttribute('data-message-id');
+            const message = state.messages.find(m => m.id === messageId);
+            if (message) {
+                showMessageModal(message);
+            }
+        });
+    });
+}
+
+function showMessageModal(message) {
+    state.selectedMessage = message;
+    const modal = document.getElementById('messageModal');
+    if (!modal) return;
+
+    // Populate modal content
+    document.getElementById('modalMessageId').textContent = message.id;
+    document.getElementById('modalPrecedence').textContent = message.precedence;
+    document.getElementById('modalPrecedence').className = `message-precedence ${message.precedence.toLowerCase()}`;
+    document.getElementById('modalClassification').textContent = message.classification;
+    document.getElementById('modalSender').textContent = message.sender;
+    document.getElementById('modalRecipient').textContent = message.recipient;
+    document.getElementById('modalContent').textContent = message.content;
+    document.getElementById('modalStatus').textContent = message.status;
+    document.getElementById('modalStatus').className = `message-status ${message.status.toLowerCase()}`;
+    document.getElementById('modalTime').textContent = formatTime(message.timestamp);
+    document.getElementById('modalEventId').textContent = message.eventId || 'N/A';
+
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+function closeMessageModal() {
+    const modal = document.getElementById('messageModal');
+    if (modal) {
+        modal.style.display = 'none';
+        state.selectedMessage = null;
+    }
 }
 
 function renderMetrics() {
@@ -418,3 +471,23 @@ function getToken() {
 // Expose for debugging
 window.tacedgeState = state;
 window.tacedgeRefresh = fetchAllData;
+window.closeMessageModal = closeMessageModal;
+
+// Close modal on outside click
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('messageModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeMessageModal();
+            }
+        });
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeMessageModal();
+        }
+    });
+});
