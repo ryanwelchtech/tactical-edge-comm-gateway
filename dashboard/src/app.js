@@ -50,7 +50,15 @@ function initializeDashboard() {
     // Clear messages on first load/reload
     state.messages = [];
     state.allAuditEvents = [];
-    state.messagesClearedAt = null;  // Reset clear timestamp on fresh load
+    
+    // Load messagesClearedAt from sessionStorage to persist across reloads
+    const storedClearedAt = sessionStorage.getItem('tacedge_messages_cleared_at');
+    if (storedClearedAt) {
+        state.messagesClearedAt = parseInt(storedClearedAt, 10);
+    } else {
+        state.messagesClearedAt = null;
+    }
+    
     renderMessages();
 
     // Load initial data from APIs
@@ -73,8 +81,8 @@ async function fetchAllData() {
         fetchAuditEvents()
     ]);
 
-    // Extract messages from audit events
-    extractMessagesFromAudit();
+    // Extract messages from audit events (await to ensure it completes)
+    await extractMessagesFromAudit();
 }
 
 async function fetchNodes() {
@@ -149,7 +157,8 @@ async function fetchServiceHealth() {
 
 async function fetchAuditEvents() {
     try {
-        const res = await fetch(`${CONFIG.auditUrl}/api/v1/audit/events?limit=100`);
+        // Fetch more events to ensure we catch all recent messages
+        const res = await fetch(`${CONFIG.auditUrl}/api/v1/audit/events?limit=200`);
         if (res.ok) {
             const data = await res.json();
             const events = data.events || [];
@@ -679,8 +688,10 @@ async function sendMessage(precedence, classification, sender, recipient, conten
         if (!isBatch) {
             document.getElementById('messageContent').value = '';
         }
-        // Refresh data
-        setTimeout(() => fetchAllData(), 1000);
+        // Refresh data immediately, then again after a short delay to catch audit events
+        fetchAllData();
+        setTimeout(() => fetchAllData(), 500);
+        setTimeout(() => fetchAllData(), 2000);
     } else {
         statusEl.textContent = `Sent ${successCount}/${totalMessages} message(s). ${failCount} failed.`;
         statusEl.className = 'send-status error';
@@ -734,6 +745,10 @@ function initializeMessageSender() {
             state.messages = [];
             state.allAuditEvents = [];
             state.messagesClearedAt = Date.now();  // Track when messages were cleared
+            
+            // Persist to sessionStorage so it survives page reloads
+            sessionStorage.setItem('tacedge_messages_cleared_at', state.messagesClearedAt.toString());
+            
             renderMessages();
         });
     }
