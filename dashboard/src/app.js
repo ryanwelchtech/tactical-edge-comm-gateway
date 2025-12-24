@@ -172,6 +172,42 @@ async function fetchAuditEvents() {
             const events = data.events || [];
             
             console.log(`[fetchAuditEvents] Fetched ${events.length} audit events`);
+            
+            // Log the newest and oldest event timestamps to understand ordering
+            if (events.length > 0) {
+                const sortedByTime = [...events].sort((a, b) => 
+                    new Date(a.timestamp) - new Date(b.timestamp)
+                );
+                const oldest = sortedByTime[0];
+                const newest = sortedByTime[sortedByTime.length - 1];
+                console.log(`[fetchAuditEvents] Event timestamp range:`, {
+                    oldest: oldest.timestamp,
+                    newest: newest.timestamp,
+                    oldestTime: new Date(oldest.timestamp).toISOString(),
+                    newestTime: new Date(newest.timestamp).toISOString(),
+                    oldestEventType: oldest.event_type,
+                    newestEventType: newest.event_type
+                });
+                
+                // Check if there are any MESSAGE_SENT events in the fetched batch
+                const messageSentEvents = events.filter(e => e.event_type === 'MESSAGE_SENT');
+                if (messageSentEvents.length > 0) {
+                    const newestMessage = messageSentEvents.sort((a, b) => 
+                        new Date(b.timestamp) - new Date(a.timestamp)
+                    )[0];
+                    console.log(`[fetchAuditEvents] Newest MESSAGE_SENT event:`, {
+                        timestamp: newestMessage.timestamp,
+                        timestampISO: new Date(newestMessage.timestamp).toISOString(),
+                        messageId: newestMessage.action?.resource,
+                        initTime: state.dashboardInitTime ? new Date(state.dashboardInitTime).toISOString() : 'null',
+                        willPassFilter: state.dashboardInitTime ? 
+                            (new Date(newestMessage.timestamp).getTime() > (state.dashboardInitTime - 10000)) : 
+                            'no init time'
+                    });
+                } else {
+                    console.log(`[fetchAuditEvents] No MESSAGE_SENT events in fetched batch`);
+                }
+            }
 
             // Show most recent 10 audit events (not just 5)
             state.auditEvents = events.slice(0, 10).map(event => ({
