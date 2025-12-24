@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-core
+  namespace: tacedge-system
+  labels:
+    app: tacedge
+    component: gateway-core
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tacedge
+      component: gateway-core
+  template:
+    metadata:
+      labels:
+        app: tacedge
+        component: gateway-core
+    spec:
+      serviceAccountName: tacedge-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: gateway-core
+          image: tacedge/gateway-core:latest
+          ports:
+            - containerPort: 5000
+              name: http
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: tacedge-secrets
+                  key: jwt-secret
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tacedge-secrets
+                  key: encryption-key
+            - name: CRYPTO_SERVICE_URL
+              value: "http://crypto-service:5001"
+            - name: AUDIT_SERVICE_URL
+              value: "http://audit-service:5002"
+            - name: STORE_FORWARD_URL
+              value: "http://store-forward:5003"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-core
+  namespace: tacedge-system
+  labels:
+    app: tacedge
+    component: gateway-core
+spec:
+  selector:
+    app: tacedge
+    component: gateway-core
+  ports:
+    - port: 5000
+      targetPort: 5000
+      name: http
+  type: ClusterIP
+

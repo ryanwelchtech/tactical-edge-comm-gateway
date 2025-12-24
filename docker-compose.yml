@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  # Redis - Message queue backend
+  redis:
+    image: redis:7-alpine
+    container_name: tacedge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tacedge-network
+
+  # Gateway Core - Main message routing service
+  gateway-core:
+    build:
+      context: ./services/gateway-core
+      dockerfile: Dockerfile
+    container_name: tacedge-gateway-core
+    ports:
+      - "5000:5000"
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-development-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-development-key-change-in-production}
+      - CRYPTO_SERVICE_URL=http://crypto-service:5001
+      - AUDIT_SERVICE_URL=http://audit-service:5002
+      - STORE_FORWARD_URL=http://store-forward:5003
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+      crypto-service:
+        condition: service_healthy
+      audit-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - tacedge-network
+
+  # Crypto Service - Encryption/decryption
+  crypto-service:
+    build:
+      context: ./services/crypto-service
+      dockerfile: Dockerfile
+    container_name: tacedge-crypto-service
+    ports:
+      - "5001:5001"
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-development-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-development-key-change-in-production}
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - tacedge-network
+
+  # Audit Service - NIST 800-53 compliant logging
+  audit-service:
+    build:
+      context: ./services/audit-service
+      dockerfile: Dockerfile
+    container_name: tacedge-audit-service
+    ports:
+      - "5002:5002"
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-development-secret-change-in-production}
+      - AUDIT_STORAGE_PATH=/app/data
+      - LOG_LEVEL=INFO
+    volumes:
+      - audit-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - tacedge-network
+
+  # Store-Forward Service - Message queuing
+  store-forward:
+    build:
+      context: ./services/store-forward
+      dockerfile: Dockerfile
+    container_name: tacedge-store-forward
+    ports:
+      - "5003:5003"
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-development-secret-change-in-production}
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5003/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - tacedge-network
+
+  # Dashboard - Tactical Operations UI
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: tacedge-dashboard
+    ports:
+      - "8080:80"
+    depends_on:
+      - gateway-core
+    networks:
+      - tacedge-network
+
+networks:
+  tacedge-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  audit-data:
+

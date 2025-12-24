@@ -1,0 +1,94 @@
+# Default deny all ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: tacedge-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Allow ingress to gateway-core from external
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-ingress
+  namespace: tacedge-system
+spec:
+  podSelector:
+    matchLabels:
+      component: gateway-core
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 5000
+---
+# Allow dashboard external access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dashboard-ingress
+  namespace: tacedge-system
+spec:
+  podSelector:
+    matchLabels:
+      component: dashboard
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+---
+# Allow gateway-core to call internal services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-from-gateway
+  namespace: tacedge-system
+spec:
+  podSelector:
+    matchLabels:
+      app: tacedge
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              component: gateway-core
+      ports:
+        - protocol: TCP
+          port: 5001
+        - protocol: TCP
+          port: 5002
+        - protocol: TCP
+          port: 5003
+---
+# Allow store-forward to access Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-access
+  namespace: tacedge-system
+spec:
+  podSelector:
+    matchLabels:
+      component: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              component: store-forward
+        - podSelector:
+            matchLabels:
+              component: gateway-core
+      ports:
+        - protocol: TCP
+          port: 6379
+

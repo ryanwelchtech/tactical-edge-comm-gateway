@@ -1,0 +1,131 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/tacedge
+
+jobs:
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [gateway-core, crypto-service, audit-service, store-forward]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install pip-audit
+        run: pip install pip-audit
+      
+      - name: Scan dependencies
+        run: |
+          cd services/${{ matrix.service }}
+          pip-audit -r requirements.txt --format json --output audit-results.json || true
+      
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-${{ matrix.service }}
+          path: services/${{ matrix.service }}/audit-results.json
+
+  sast-scan:
+    name: Static Application Security Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Bandit
+        run: pip install bandit
+      
+      - name: Run Bandit scan
+        run: |
+          bandit -r services/ -f json -o bandit-results.json || true
+      
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-results
+          path: bandit-results.json
+
+  container-scan:
+    name: Container Image Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [gateway-core, crypto-service, audit-service, store-forward, dashboard]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Build image for scanning
+        run: |
+          if [ "${{ matrix.service }}" = "dashboard" ]; then
+            docker build -t scan-target:latest ./dashboard
+          else
+            docker build -t scan-target:latest ./services/${{ matrix.service }}
+          fi
+      
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'scan-target:latest'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+      
+      - name: Run Trivy scan (SARIF)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'scan-target:latest'
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}.sarif'
+        continue-on-error: true
+      
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-${{ matrix.service }}
+          path: trivy-${{ matrix.service }}.sarif
+        if: always()
+
+  compliance-check:
+    name: Kubernetes Compliance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Kubesec
+        run: |
+          wget https://github.com/controlplaneio/kubesec/releases/download/v2.14.0/kubesec_linux_amd64.tar.gz
+          tar -xvf kubesec_linux_amd64.tar.gz
+          chmod +x kubesec
+      
+      - name: Scan Kubernetes manifests
+        run: |
+          for file in deploy/k8s/base/*.yaml; do
+            echo "Scanning $file..."
+            ./kubesec scan "$file" || true
+          done
+
