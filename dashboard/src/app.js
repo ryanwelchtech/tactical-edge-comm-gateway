@@ -241,20 +241,48 @@ async function extractMessagesFromAudit() {
     let filteredEvents = allEvents;
     if (state.dashboardInitTime) {
         // Always apply init time filter to prevent old messages from previous sessions
-        // Use a 5-second buffer before init time to account for clock skew and timing differences
+        // Use a 10-second buffer before init time to account for clock skew and timing differences
         const initTime = state.dashboardInitTime;
-        const bufferTime = initTime - (5 * 1000); // 5 seconds before init time to account for clock skew
+        const bufferTime = initTime - (10 * 1000); // 10 seconds before init time to account for clock skew
+        
+        // Debug: Log all MESSAGE_SENT events and their timestamps relative to init time
+        const messageSentEvents = allEvents.filter(e => e.event_type === 'MESSAGE_SENT');
+        if (messageSentEvents.length > 0) {
+            console.log(`[extractMessagesFromAudit] Checking ${messageSentEvents.length} MESSAGE_SENT events against init time ${new Date(initTime).toISOString()}`);
+            messageSentEvents.slice(0, 5).forEach(e => {
+                const eventTime = new Date(e.timestamp).getTime();
+                const timeDiff = eventTime - initTime;
+                console.log(`[extractMessagesFromAudit] Message timestamp check:`, {
+                    timestamp: e.timestamp,
+                    eventTime: new Date(eventTime).toISOString(),
+                    initTime: new Date(initTime).toISOString(),
+                    timeDiff: Math.round(timeDiff / 1000) + 's',
+                    willPass: timeDiff > -10000,
+                    messageId: e.action?.resource
+                });
+            });
+        }
         
         filteredEvents = allEvents.filter(e => {
             const eventTime = new Date(e.timestamp).getTime();
-            const isAfterInit = eventTime > bufferTime; // Include events 5 seconds before init (buffer for timing)
+            const isAfterInit = eventTime > bufferTime; // Include events 10 seconds before init (buffer for timing)
             if (e.event_type === 'MESSAGE_SENT' && !isAfterInit) {
+                const timeDiff = initTime - eventTime;
                 console.log(`[extractMessagesFromAudit] Filtered out old message (before init time):`, {
                     eventTime: new Date(eventTime).toISOString(),
                     initTime: new Date(initTime).toISOString(),
                     bufferTime: new Date(bufferTime).toISOString(),
                     messageId: e.action?.resource,
-                    timeDiff: Math.round((initTime - eventTime) / 1000) + 's before init'
+                    timeDiff: Math.round(timeDiff / 1000) + 's before init'
+                });
+            } else if (e.event_type === 'MESSAGE_SENT' && isAfterInit) {
+                // Log messages that pass the filter
+                const timeDiff = eventTime - initTime;
+                console.log(`[extractMessagesFromAudit] Keeping message (after init time):`, {
+                    eventTime: new Date(eventTime).toISOString(),
+                    initTime: new Date(initTime).toISOString(),
+                    timeDiff: Math.round(timeDiff / 1000) + 's after init',
+                    messageId: e.action?.resource
                 });
             }
             return isAfterInit;
