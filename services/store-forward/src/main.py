@@ -63,7 +63,7 @@ _processing_task = None
 async def process_queue_worker():
     """Background worker that automatically processes queued messages."""
     logger.info("Starting queue processing worker")
-    
+
     while True:
         try:
             # Process messages in priority order
@@ -79,10 +79,10 @@ async def process_queue_worker():
                         precedence=precedence,
                         recipient=message.recipient
                     )
-            
+
             # Wait before next processing cycle
             await asyncio.sleep(2)  # Process queue every 2 seconds
-            
+
         except Exception as e:
             logger.error("Queue processing error", error=str(e))
             await asyncio.sleep(5)  # Wait longer on error
