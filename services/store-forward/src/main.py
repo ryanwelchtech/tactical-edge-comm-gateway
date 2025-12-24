@@ -8,7 +8,6 @@ Implements priority-based queuing with TTL management.
 import os
 import time
 from contextlib import asynccontextmanager
-from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +16,7 @@ from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATE
 from starlette.responses import Response
 import structlog
 
-from .queue_manager import QueueManager, QueuedMessage
+from .queue_manager import QueueManager
 
 # Configure structured logging
 structlog.configure(
@@ -63,15 +62,15 @@ queue_manager: QueueManager = None
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
     global queue_manager
-    
+
     logger.info("Starting Store-Forward Service")
-    
+
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
     queue_manager = QueueManager(redis_url=redis_url)
     await queue_manager.connect()
-    
+
     yield
-    
+
     logger.info("Shutting down Store-Forward Service")
     await queue_manager.disconnect()
 
@@ -144,7 +143,7 @@ async def health_check():
     """Liveness probe endpoint."""
     redis_connected = queue_manager.is_connected if queue_manager else False
     total_queued = await queue_manager.get_total_depth() if queue_manager and redis_connected else 0
-    
+
     return HealthResponse(
         status="healthy" if redis_connected else "degraded",
         version="1.0.0",
@@ -169,7 +168,7 @@ async def metrics():
         for precedence in ["FLASH", "IMMEDIATE", "PRIORITY", "ROUTINE"]:
             depth = await queue_manager.get_queue_depth(precedence)
             QUEUE_DEPTH.labels(priority=precedence).set(depth)
-    
+
     return Response(
         content=generate_latest(),
         media_type=CONTENT_TYPE_LATEST
@@ -180,7 +179,7 @@ async def metrics():
 async def enqueue_message(request: EnqueueRequest):
     """
     Enqueue a message for store-forward delivery.
-    
+
     Messages are queued by precedence (FLASH > IMMEDIATE > PRIORITY > ROUTINE)
     and delivered in priority order when the destination becomes available.
     """
@@ -192,23 +191,23 @@ async def enqueue_message(request: EnqueueRequest):
             precedence=request.precedence,
             ttl=request.ttl
         )
-        
+
         MESSAGES_ENQUEUED.labels(priority=request.precedence).inc()
-        
+
         logger.info(
             "Message enqueued",
             message_id=request.message_id,
             precedence=request.precedence,
             queue_position=result["queue_position"]
         )
-        
+
         return EnqueueResponse(
             message_id=request.message_id,
             queue_position=result["queue_position"],
             precedence=request.precedence,
             expires_at=result["expires_at"]
         )
-        
+
     except Exception as e:
         logger.error("Enqueue failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Enqueue failed: {str(e)}")
@@ -217,7 +216,7 @@ async def enqueue_message(request: EnqueueRequest):
 @app.get("/api/v1/queue/status", response_model=QueueStatusResponse, tags=["Queue"])
 async def get_queue_status():
     """Get current queue depth and statistics."""
-    
+
     queues = {}
     for precedence in ["FLASH", "IMMEDIATE", "PRIORITY", "ROUTINE"]:
         depth = await queue_manager.get_queue_depth(precedence)
@@ -226,9 +225,9 @@ async def get_queue_status():
             "depth": depth,
             "oldest_message": oldest
         }
-    
+
     total_queued = sum(q["depth"] for q in queues.values())
-    
+
     return QueueStatusResponse(
         queues=queues,
         total_queued=total_queued,
@@ -240,24 +239,24 @@ async def get_queue_status():
 async def flush_queue():
     """
     Force immediate transmission of all queued messages.
-    
+
     Requires admin role.
     """
     try:
         result = await queue_manager.flush_all()
-        
+
         logger.info(
             "Queue flushed",
             flushed=result["flushed"],
             failed=result["failed"]
         )
-        
+
         return FlushResponse(
             flushed=result["flushed"],
             failed=result["failed"],
             status="COMPLETED"
         )
-        
+
     except Exception as e:
         logger.error("Flush failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Flush failed: {str(e)}")
@@ -267,4 +266,3 @@ async def flush_queue():
 async def startup_event():
     app.state.start_time = time.time()
     logger.info("Store-Forward Service started")
-
