@@ -202,11 +202,14 @@ async function extractMessagesFromAudit() {
     // Extract ALL MESSAGE_SENT events from audit (not just first 5)
     const allEvents = state.allAuditEvents || [];
     
-    // Filter out messages that were created before messages were cleared
+    // If messages were cleared, filter out events created before the clear time
+    // Add a small buffer (100ms) to account for timing differences
     const filteredEvents = state.messagesClearedAt 
         ? allEvents.filter(e => {
             const eventTime = new Date(e.timestamp).getTime();
-            return eventTime > state.messagesClearedAt;
+            const clearTime = state.messagesClearedAt;
+            // Only include events created AFTER the clear (with 100ms buffer)
+            return eventTime > (clearTime + 100);
         })
         : allEvents;
     
@@ -268,9 +271,14 @@ async function extractMessagesFromAudit() {
         state.messages = Array.from(messageMap.values()).slice(0, 20);
         renderMessages();
     } else {
-        // If no messages from audit, use demo data
-        if (state.messages.length === 0) {
+        // If no messages from audit, clear the messages list
+        // Only load demo data if messages were never cleared
+        if (state.messagesClearedAt === null && state.messages.length === 0) {
             loadDemoMessages();
+        } else {
+            // Messages were cleared, so keep the list empty
+            state.messages = [];
+            renderMessages();
         }
     }
 }
@@ -721,7 +729,9 @@ function initializeMessageSender() {
     
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
+            // Clear all messages and audit events
             state.messages = [];
+            state.allAuditEvents = [];
             state.messagesClearedAt = Date.now();  // Track when messages were cleared
             renderMessages();
         });
