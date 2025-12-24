@@ -778,9 +778,15 @@ async function sendMessage(precedence, classification, sender, recipient, conten
             if (response.ok) {
                 const data = await response.json();
                 messages.push({ success: true, id: data.message_id });
+                console.log(`[sendMessage] Message sent successfully:`, {
+                    messageId: data.message_id,
+                    timestamp: new Date().toISOString(),
+                    initTime: state.dashboardInitTime ? new Date(state.dashboardInitTime).toISOString() : 'null'
+                });
             } else {
                 const error = await response.json();
                 messages.push({ success: false, error: error.detail?.error?.message || 'Failed' });
+                console.error(`[sendMessage] Failed to send message:`, error);
             }
         } catch (error) {
             messages.push({ success: false, error: error.message });
@@ -805,6 +811,7 @@ async function sendMessage(precedence, classification, sender, recipient, conten
         // Refresh data immediately, then again after delays to catch audit events
         // Audit service may need time to persist events
         console.log(`[sendMessage] Message sent successfully, refreshing data...`);
+        console.log(`[sendMessage] Current init time: ${state.dashboardInitTime ? new Date(state.dashboardInitTime).toISOString() : 'null'}`);
         fetchAllData();
         setTimeout(() => {
             console.log(`[sendMessage] First refresh (500ms delay)`);
@@ -818,6 +825,10 @@ async function sendMessage(precedence, classification, sender, recipient, conten
             console.log(`[sendMessage] Third refresh (5s delay)`);
             fetchAllData();
         }, 5000);
+        setTimeout(() => {
+            console.log(`[sendMessage] Fourth refresh (10s delay)`);
+            fetchAllData();
+        }, 10000);
     } else {
         statusEl.textContent = `Sent ${successCount}/${totalMessages} message(s). ${failCount} failed.`;
         statusEl.className = 'send-status error';
