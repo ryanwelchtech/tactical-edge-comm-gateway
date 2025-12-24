@@ -98,11 +98,11 @@ async function fetchNodes() {
             renderNodes();
         } else {
             // Auth failed or other error - use demo data
-            console.log('Nodes API returned error, using demo data');
+            // Fallback to demo data if API unavailable
             loadDemoNodes();
         }
     } catch (error) {
-        console.log('Nodes API not available, using demo data');
+        // Fallback to demo data if API unavailable
         loadDemoNodes();
     }
 }
@@ -122,7 +122,7 @@ async function fetchQueueStatus() {
             renderQueueStats();
         }
     } catch (error) {
-        console.log('Queue API not available');
+        // Queue API unavailable, metrics will show defaults
     }
 }
 
@@ -194,7 +194,7 @@ async function fetchAuditEvents() {
             }
         }
     } catch (error) {
-        console.log('Audit API not available, using demo data');
+        // Fallback to demo data if audit API unavailable
         loadDemoAuditEvents();
     }
 }
