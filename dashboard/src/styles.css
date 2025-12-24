@@ -190,8 +190,8 @@ body::before {
     flex: 1;
     display: grid;
     grid-template-columns: 280px 1fr 320px 320px;
-    gap: 20px;
-    padding: 20px;
+    gap: 16px;
+    padding: 16px;
     max-height: calc(100vh - var(--header-height) - var(--footer-height));
     overflow: hidden;
 }
@@ -204,8 +204,11 @@ body::before {
     background: var(--bg-secondary);
     border: 1px solid var(--border-primary);
     border-radius: 12px;
-    padding: 20px;
+    padding: 16px;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .panel-title {
@@ -234,7 +237,7 @@ body::before {
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin: 24px 0 12px;
+    margin: 16px 0 10px;
 }
 
 /* ============================================
@@ -244,7 +247,7 @@ body::before {
 .node-grid {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .node-card {
@@ -302,13 +305,13 @@ body::before {
    ============================================ */
 
 .queue-container {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .queue-stats {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: 8px;
 }
 
 .stat-card {
@@ -377,8 +380,8 @@ body::before {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 16px;
-    padding: 12px 16px;
+    margin-top: 12px;
+    padding: 10px 12px;
     background: var(--bg-card);
     border: 1px solid var(--border-primary);
     border-radius: 8px;
@@ -400,7 +403,7 @@ body::before {
 .message-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     max-height: 300px;
     overflow-y: auto;
 }
@@ -408,13 +411,14 @@ body::before {
 .message-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
+    gap: 10px;
+    padding: 8px 10px;
     background: var(--bg-card);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     font-size: 12px;
     transition: all 0.2s ease;
+    margin: 0;
 }
 
 .message-item.clickable {
@@ -491,15 +495,16 @@ body::before {
 .metrics-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 8px;
 }
 
 .metric-card {
     background: var(--bg-card);
     border: 1px solid var(--border-primary);
     border-radius: 8px;
-    padding: 12px;
+    padding: 10px;
     text-align: center;
+    margin: 0;
 }
 
 .metric-label {
@@ -521,17 +526,18 @@ body::before {
 .service-health {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .service-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: var(--bg-card);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
+    margin: 0;
 }
 
 .service-name {
@@ -577,17 +583,19 @@ body::before {
     gap: 6px;
     max-height: 300px;
     overflow-y: auto;
+    margin: 0;
 }
 
 .audit-item {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 8px 10px;
+    gap: 8px;
+    padding: 6px 8px;
     background: var(--bg-card);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     font-size: 11px;
+    margin: 0;
 }
 
 .audit-control {
@@ -681,7 +689,7 @@ body::before {
 .sender-form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
 .form-group {
@@ -916,34 +924,197 @@ body::before {
     line-height: 1.6;
 }
 
-@media (max-width: 1600px) {
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+/* Large Desktop (1600px+) - 4 columns */
+@media (min-width: 1600px) {
     .main-content {
-        grid-template-columns: 280px 1fr 320px;
-    }
-    
-    .sender-panel {
-        grid-column: 1 / -1;
-        margin-top: 20px;
+        grid-template-columns: 280px 1fr 320px 320px;
+        gap: 16px;
+        padding: 16px;
     }
 }
 
-@media (max-width: 1200px) {
+/* Desktop (1200px - 1599px) - 3 columns */
+@media (max-width: 1599px) and (min-width: 1200px) {
     .main-content {
-        grid-template-columns: 1fr;
+        grid-template-columns: 260px 1fr 300px;
+        gap: 14px;
+        padding: 14px;
+    }
+
+    .sender-panel {
+        grid-column: 1 / -1;
+        margin-top: 0;
+    }
+}
+
+/* Tablet (768px - 1199px) - 2 columns */
+@media (max-width: 1199px) and (min-width: 768px) {
+    .main-content {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        padding: 12px;
         max-height: none;
         overflow-y: auto;
     }
-    
+
+    .network-panel {
+        grid-column: 1;
+    }
+
+    .queue-panel {
+        grid-column: 2;
+    }
+
+    .metrics-panel {
+        grid-column: 1;
+    }
+
+    .sender-panel {
+        grid-column: 2;
+    }
+
     .panel {
         max-height: none;
+    }
+
+    .header {
+        padding: 0 16px;
+    }
+
+    .header-subtitle {
+        font-size: 11px;
+    }
+}
+
+/* Mobile (< 768px) - 1 column */
+@media (max-width: 767px) {
+    .main-content {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 12px;
+        max-height: none;
+        overflow-y: auto;
+    }
+
+    .panel {
+        max-height: none;
+        padding: 12px;
+    }
+
+    .panel-title {
+        font-size: 12px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+    }
+
+    .header {
+        padding: 0 12px;
+        flex-wrap: wrap;
+        height: auto;
+        min-height: var(--header-height);
+        padding-top: 8px;
+        padding-bottom: 8px;
+    }
+
+    .header-left {
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .header-right {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+    }
+
+    .logo-text {
+        font-size: 14px;
+    }
+
+    .header-subtitle {
+        font-size: 10px;
+        display: none; /* Hide on very small screens */
+    }
+
+    .status-indicator {
+        font-size: 9px;
+        padding: 4px 8px;
+    }
+
+    .datetime {
+        font-size: 10px;
+    }
+
+    .node-grid {
+        gap: 8px;
+    }
+
+    .queue-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .sender-form {
+        gap: 10px;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+
+    .modal-content {
+        width: 95%;
+        max-width: none;
+        margin: 10px;
     }
 
     .modal-section {
         grid-template-columns: 1fr;
     }
-    
-    .sender-panel {
-        grid-column: 1;
+
+    .stat-value {
+        font-size: 20px;
     }
+
+    .node-card,
+    .stat-card,
+    .metric-card {
+        padding: 10px;
+    }
+}
+
+/* Ensure consistent spacing - no weird gaps */
+* {
+    box-sizing: border-box;
+}
+
+.panel > *:first-child {
+    margin-top: 0;
+}
+
+.panel > *:last-child {
+    margin-bottom: 0;
+}
+
+.node-card,
+.stat-card,
+.metric-card,
+.message-item,
+.service-item,
+.audit-item {
+    margin: 0;
 }
 

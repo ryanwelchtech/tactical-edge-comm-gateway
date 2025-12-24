@@ -314,7 +314,7 @@ async def get_message_status(
     claims: JWTClaims = Depends(require_permission("message:read"))
 ):
     """Retrieve the status of a previously sent message."""
-    
+
     # Check message store first
     if message_id in message_store:
         msg = message_store[message_id]
@@ -330,7 +330,7 @@ async def get_message_status(
             encrypted=True,
             audit_trail=[]
         )
-    
+
     # Fallback for demo
     raise HTTPException(status_code=404, detail="Message not found")
 
@@ -341,7 +341,7 @@ async def get_message_content(
     claims: JWTClaims = Depends(require_permission("message:read"))
 ):
     """Retrieve the content of a previously sent message."""
-    
+
     if message_id in message_store:
         msg = message_store[message_id]
         return {
@@ -352,7 +352,7 @@ async def get_message_content(
             "sender": msg["sender"],
             "recipient": msg["recipient"]
         }
-    
+
     raise HTTPException(status_code=404, detail="Message not found")
 
 
