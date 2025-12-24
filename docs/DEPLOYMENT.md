@@ -1,6 +1,8 @@
 # Backend Deployment Guide
 
-This guide covers options for deploying the TacEdge Gateway backend services so the GitHub Pages dashboard can connect to a live API.
+> **Note:** This guide is for deploying backend services to cloud platforms. The dashboard is designed to run locally via Docker Compose for demonstration purposes.
+
+This guide covers options for deploying the TacEdge Gateway backend services to various cloud platforms.
 
 ## Overview
 
