@@ -46,6 +46,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeDashboard() {
+    // Clear messages on first load
+    state.messages = [];
+    state.allAuditEvents = [];
+    renderMessages();
+
     // Load initial data from APIs
     fetchAllData();
 
@@ -666,6 +671,7 @@ async function sendMessage(precedence, classification, sender, recipient, conten
 function initializeMessageSender() {
     const sendBtn = document.getElementById('sendMessageBtn');
     const batchBtn = document.getElementById('sendBatchBtn');
+    const clearBtn = document.getElementById('clearMessagesBtn');
     
     if (sendBtn) {
         sendBtn.addEventListener('click', async () => {
@@ -700,6 +706,14 @@ function initializeMessageSender() {
             batchBtn.disabled = true;
             await sendMessage(precedence, classification, sender, recipient, content, true, batchCount);
             batchBtn.disabled = false;
+        });
+    }
+    
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            state.messages = [];
+            state.allAuditEvents = [];
+            renderMessages();
         });
     }
 }

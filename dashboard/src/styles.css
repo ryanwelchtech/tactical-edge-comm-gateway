@@ -263,6 +263,18 @@ body::before {
 .queue-panel {
     border-right: 1px solid var(--border-primary);
     height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.queue-container {
+    flex-shrink: 0;
+}
+
+.message-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .sender-panel {
@@ -364,6 +376,7 @@ body::before {
 
 .queue-container {
     margin-bottom: 16px;
+    flex-shrink: 0;
 }
 
 .queue-stats {
@@ -462,7 +475,8 @@ body::before {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: 300px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
 }
 

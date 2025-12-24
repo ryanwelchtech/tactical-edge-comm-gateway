@@ -76,6 +76,8 @@ bandit-results.json
 
 # Personal/Social media content
 docs/LINKEDIN_POST.md
+docs/RESUME_BULLETS.md
+docs/DEPLOYMENT.md
 
 # Local scripts (contain secrets)
 scripts/send-message.ps1
