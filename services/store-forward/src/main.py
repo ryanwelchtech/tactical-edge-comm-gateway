@@ -7,6 +7,7 @@ Implements priority-based queuing with TTL management.
 
 import os
 import time
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -56,12 +57,41 @@ MESSAGES_EXPIRED = Counter(
 )
 
 queue_manager: QueueManager = None
+_processing_task = None
+
+
+async def process_queue_worker():
+    """Background worker that automatically processes queued messages."""
+    logger.info("Starting queue processing worker")
+    
+    while True:
+        try:
+            # Process messages in priority order
+            for precedence in ["FLASH", "IMMEDIATE", "PRIORITY", "ROUTINE"]:
+                message = await queue_manager.dequeue(precedence)
+                if message:
+                    # Simulate message delivery
+                    # In production, this would attempt actual delivery to the recipient
+                    MESSAGES_DEQUEUED.labels(priority=precedence).inc()
+                    logger.info(
+                        "Message processed from queue",
+                        message_id=message.message_id,
+                        precedence=precedence,
+                        recipient=message.recipient
+                    )
+            
+            # Wait before next processing cycle
+            await asyncio.sleep(2)  # Process queue every 2 seconds
+            
+        except Exception as e:
+            logger.error("Queue processing error", error=str(e))
+            await asyncio.sleep(5)  # Wait longer on error
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
-    global queue_manager
+    global queue_manager, _processing_task
 
     logger.info("Starting Store-Forward Service")
 
@@ -69,7 +99,18 @@ async def lifespan(app: FastAPI):
     queue_manager = QueueManager(redis_url=redis_url)
     await queue_manager.connect()
 
+    # Start background queue processing worker
+    _processing_task = asyncio.create_task(process_queue_worker())
+
     yield
+
+    # Stop background worker
+    if _processing_task:
+        _processing_task.cancel()
+        try:
+            await _processing_task
+        except asyncio.CancelledError:
+            pass
 
     logger.info("Shutting down Store-Forward Service")
     await queue_manager.disconnect()

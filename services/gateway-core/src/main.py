@@ -60,6 +60,9 @@ AUTH_FAILURES = Counter(
 message_handler: Optional[MessageHandler] = None
 http_client: Optional[httpx.AsyncClient] = None
 
+# In-memory message store (in production, use persistent storage)
+message_store: dict[str, dict] = {}
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -249,6 +252,18 @@ async def send_message(
     )
 
     try:
+        # Store message content for retrieval
+        message_store[message_id] = {
+            "message_id": message_id,
+            "precedence": request.precedence,
+            "classification": request.classification,
+            "sender": request.sender,
+            "recipient": request.recipient,
+            "content": request.content,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "status": "PENDING"
+        }
+
         # Process message through handler
         result = await message_handler.process_message(
             message_id=message_id,
@@ -260,6 +275,11 @@ async def send_message(
             ttl=request.ttl,
             jwt_token=claims.raw_token
         )
+
+        # Update stored message status
+        if message_id in message_store:
+            message_store[message_id]["status"] = result["status"]
+            message_store[message_id]["estimated_delivery"] = result.get("estimated_delivery")
 
         # Calculate latency and record metrics
         latency = time.time() - start_time
@@ -293,37 +313,46 @@ async def get_message_status(
     claims: JWTClaims = Depends(require_permission("message:read"))
 ):
     """Retrieve the status of a previously sent message."""
+    
+    # Check message store first
+    if message_id in message_store:
+        msg = message_store[message_id]
+        return MessageStatusResponse(
+            message_id=msg["message_id"],
+            status=msg["status"],
+            precedence=msg["precedence"],
+            sender=msg["sender"],
+            recipient=msg["recipient"],
+            created_at=msg["created_at"],
+            delivered_at=msg.get("estimated_delivery"),
+            latency_ms=None,
+            encrypted=True,
+            audit_trail=[]
+        )
+    
+    # Fallback for demo
+    raise HTTPException(status_code=404, detail="Message not found")
 
-    # In production, this would query a message store
-    # For demo, return simulated status
-    return MessageStatusResponse(
-        message_id=message_id,
-        status="DELIVERED",
-        precedence="FLASH",
-        sender="NODE-ALPHA",
-        recipient="NODE-BRAVO",
-        created_at=datetime.now(timezone.utc).isoformat(),
-        delivered_at=datetime.now(timezone.utc).isoformat(),
-        latency_ms=85,
-        encrypted=True,
-        audit_trail=[
-            {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "event": "RECEIVED",
-                "node": "GATEWAY-01"
-            },
-            {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "event": "ENCRYPTED",
-                "node": "CRYPTO-01"
-            },
-            {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "event": "DELIVERED",
-                "node": "NODE-BRAVO"
-            }
-        ]
-    )
+
+@app.get("/api/v1/messages/{message_id}/content", tags=["Messages"])
+async def get_message_content(
+    message_id: str,
+    claims: JWTClaims = Depends(require_permission("message:read"))
+):
+    """Retrieve the content of a previously sent message."""
+    
+    if message_id in message_store:
+        msg = message_store[message_id]
+        return {
+            "message_id": message_id,
+            "content": msg["content"],
+            "precedence": msg["precedence"],
+            "classification": msg["classification"],
+            "sender": msg["sender"],
+            "recipient": msg["recipient"]
+        }
+    
+    raise HTTPException(status_code=404, detail="Message not found")
 
 
 @app.post("/api/v1/messages/{message_id}/ack", tags=["Messages"])

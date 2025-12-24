@@ -166,32 +166,62 @@ async function fetchAuditEvents() {
     }
 }
 
-function extractMessagesFromAudit() {
+async function fetchMessageContent(messageId) {
+    // Try to fetch message content from gateway API
+    try {
+        const res = await fetch(`${CONFIG.gatewayUrl}/api/v1/messages/${messageId}/content`, {
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            return data.content;
+        }
+    } catch (error) {
+        console.log(`Could not fetch content for ${messageId}:`, error);
+    }
+    return null;
+}
+
+async function extractMessagesFromAudit() {
     // Extract ALL MESSAGE_SENT events from audit (not just first 5)
     const allEvents = state.allAuditEvents || [];
-    const messageEvents = allEvents
-        .filter(e => e.event_type === 'MESSAGE_SENT')
-        .map(e => {
-            // Debug: log the event structure to see what's available
-            if (e.context && !e.context.content) {
-                console.log('Event context:', e.context);
-            }
-            
-            return {
-                id: e.action?.resource?.replace('message:', '') || `msg-${e.event_id}`,
-                precedence: e.context?.precedence || 'ROUTINE',
-                classification: e.context?.classification || 'UNCLASSIFIED',
-                sender: e.actor?.node_id || 'UNKNOWN',
-                recipient: e.context?.recipient || 'UNKNOWN',
-                content: e.context?.content || e.context?.message_content || 'Message content not available in audit log',
-                status: e.action?.outcome === 'SUCCESS' ? 'DELIVERED' : 'PENDING',
-                time: formatTime(e.timestamp),
-                timestamp: e.timestamp,
-                eventId: e.event_id,
-                raw: e
-            };
-        })
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by newest first
+    const messageEvents = await Promise.all(
+        allEvents
+            .filter(e => e.event_type === 'MESSAGE_SENT')
+            .map(async e => {
+                const messageId = e.action?.resource?.replace('message:', '') || `msg-${e.event_id}`;
+                
+                // Try to get content from audit context first
+                let content = e.context?.content || e.context?.message_content;
+                
+                // If not in audit log, try fetching from gateway API
+                if (!content) {
+                    content = await fetchMessageContent(messageId);
+                }
+                
+                // Fallback message
+                if (!content) {
+                    content = 'Message content not available';
+                }
+                
+                return {
+                    id: messageId,
+                    precedence: e.context?.precedence || 'ROUTINE',
+                    classification: e.context?.classification || 'UNCLASSIFIED',
+                    sender: e.actor?.node_id || 'UNKNOWN',
+                    recipient: e.context?.recipient || 'UNKNOWN',
+                    content: content,
+                    status: e.action?.outcome === 'SUCCESS' ? 'DELIVERED' : 'PENDING',
+                    time: formatTime(e.timestamp),
+                    timestamp: e.timestamp,
+                    eventId: e.event_id,
+                    raw: e
+                };
+            })
+    );
+    
+    // Sort by newest first
+    messageEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     if (messageEvents.length > 0) {
         // Replace messages with new list (avoid duplicates by ID)
@@ -373,7 +403,7 @@ function renderMessages() {
     });
 }
 
-function showMessageModal(message) {
+async function showMessageModal(message) {
     state.selectedMessage = message;
     const modal = document.getElementById('messageModal');
     if (!modal) return;
@@ -385,11 +415,21 @@ function showMessageModal(message) {
     document.getElementById('modalClassification').textContent = message.classification;
     document.getElementById('modalSender').textContent = message.sender;
     document.getElementById('modalRecipient').textContent = message.recipient;
-    document.getElementById('modalContent').textContent = message.content;
     document.getElementById('modalStatus').textContent = message.status;
     document.getElementById('modalStatus').className = `message-status ${message.status.toLowerCase()}`;
     document.getElementById('modalTime').textContent = formatTime(message.timestamp);
     document.getElementById('modalEventId').textContent = message.eventId || 'N/A';
+    
+    // If content is not available or is placeholder, try fetching from API
+    let content = message.content;
+    if (!content || content === 'Message content not available' || content === 'Message content not available in audit log') {
+        document.getElementById('modalContent').textContent = 'Loading content...';
+        content = await fetchMessageContent(message.id);
+        if (!content) {
+            content = 'Message content not available';
+        }
+    }
+    document.getElementById('modalContent').textContent = content;
 
     // Show modal
     modal.style.display = 'flex';
