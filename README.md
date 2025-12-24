@@ -8,9 +8,7 @@ A **Zero Trust**, containerized tactical communications gateway platform designe
 
 **[📊 View Full Architecture Diagrams](docs/images/architecture-diagram.md)** - Interactive Mermaid diagrams showing system design, message flow, and NIST compliance mapping.
 
-**[🌐 Live Dashboard](https://ryanwelchtech.github.io/tactical-edge-comm-gateway/)** - Interactive tactical operations dashboard (GitHub Pages)
-
-**[🚀 Deployment Guide](docs/DEPLOYMENT.md)** - Step-by-step guide for deploying backend services (Railway, Render, Fly.io, VPS, Kubernetes)
+**[🎥 Dashboard Demo](docs/images/dashboard-demo.gif)** - Watch the tactical operations dashboard in action
 
 ---
 
@@ -234,18 +232,40 @@ kubectl port-forward svc/dashboard -n tacedge-system 8080:80
 
 ## 🎮 Demo Walkthrough
 
-### 1. Generate Authentication Token
+### Quick Start Demo
+
+![Dashboard Demo](docs/images/dashboard-demo.gif)
+
+**Watch the full demo:** The dashboard demonstrates real-time message routing, priority-based queuing, and comprehensive audit logging in action.
+
+### 1. Start the System
+
+```bash
+# Start all services with Docker Compose
+docker-compose up -d
+
+# Access the dashboard at http://localhost:8081
+```
+
+### 2. Interactive Dashboard Features
+
+The tactical operations dashboard provides:
+
+- **Real-time Message Queue Monitoring**: Visualize FLASH, IMMEDIATE, PRIORITY, and ROUTINE message queues
+- **Network Node Health**: Monitor 4+ tactical nodes with connection status and last-seen timestamps
+- **System Metrics**: Track messages/sec, average latency, uptime, and authentication failures
+- **Service Health Monitoring**: Real-time status of all microservices (gateway-core, crypto-service, audit-service, store-forward, redis)
+- **Recent Messages Timeline**: View delivered messages with precedence tags, sender/recipient, and timestamps
+- **Audit Event Logging**: NIST 800-53 compliant audit trail with event types and timestamps
+- **Web-based Message Sender**: Send single or batch messages directly from the dashboard with customizable precedence, classification, and content
+
+### 3. API Demo
 
 ```bash
 # Generate a JWT token for the Operator role
 python scripts/generate-jwt.py --role operator --node NODE-ALPHA
 
-# Output: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-### 2. Send a FLASH Priority Message
-
-```bash
+# Send a FLASH Priority Message
 curl -X POST http://localhost:5000/api/v1/messages \
   -H "Authorization: Bearer <your-token>" \
   -H "Content-Type: application/json" \
@@ -257,28 +277,16 @@ curl -X POST http://localhost:5000/api/v1/messages \
     "content": "URGENT: Threat detected at grid reference 12345678",
     "ttl": 300
   }'
+
+# View messages in the dashboard - they appear in real-time!
 ```
 
-### 3. Check Message Status
+### 4. Dashboard Features Demonstrated
 
-```bash
-curl http://localhost:5000/api/v1/messages/<message-id>/status \
-  -H "Authorization: Bearer <your-token>"
-```
-
-### 4. View Audit Logs
-
-```bash
-curl http://localhost:5002/api/v1/audit/events?control_family=AU \
-  -H "Authorization: Bearer <your-token>"
-```
-
-### 5. Dashboard Access
-Navigate to `http://localhost:8080` to view:
-- Real-time message queue status
-- Network node health
-- Priority distribution charts
-- Audit event timeline
+- **Priority-Based Message Routing**: Send messages with different precedence levels and watch them route through the appropriate queues
+- **Store-and-Forward**: Messages automatically queue when services are unavailable and forward when connectivity is restored
+- **Zero Trust Authentication**: Each dashboard session generates a unique JWT token for secure API access
+- **Real-time Updates**: Dashboard refreshes every 2 seconds to show latest message status, queue depths, and system metrics
 
 ---
 
