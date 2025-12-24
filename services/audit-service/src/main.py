@@ -5,7 +5,6 @@ This service provides centralized audit logging for the
 Tactical Edge Communications Gateway platform.
 """
 
-import os
 import uuid
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
